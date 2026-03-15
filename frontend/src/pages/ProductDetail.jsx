@@ -196,14 +196,7 @@ export default function ProductDetail() {
                     aria-label={`View image ${i + 1}`}
                     aria-selected={selectedImg === i}
                   >
-                    <img
-                      src={
-                        r.thumbnail
-                          ? `https://shopqa-backend.onrender.com${r.thumbnail}`
-                          : `https://picsum.photos/seed/${r.id}/200/200`
-                      }
-                      alt={r.name}
-                    />
+                    <img src={img} alt={`Thumbnail ${i + 1}`} />
                   </button>
                 ))}
               </div>
