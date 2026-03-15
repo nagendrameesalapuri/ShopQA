@@ -139,9 +139,9 @@ export default function Cart() {
               >
                 <img
                   src={
-                    product.thumbnail
-                      ? `https://shopqa-backend.onrender.com${product.thumbnail}`
-                      : `https://picsum.photos/seed/${product.id}/300/300`
+                    item.thumbnail
+                      ? `https://shopqa-backend.onrender.com${item.thumbnail}`
+                      : `https://picsum.photos/seed/${item.id}/300/300`
                   }
                   alt={item.name}
                   className="cart-item-img"

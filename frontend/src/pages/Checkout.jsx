@@ -722,6 +722,11 @@ export default function Checkout() {
                 data-testid="summary-item"
               >
                 <img
+                  src={
+                    item.thumbnail
+                      ? `https://shopqa-backend.onrender.com${item.thumbnail}`
+                      : `https://picsum.photos/seed/${item.id}/300/300`
+                  }
                   alt={item.name}
                   style={{
                     width: 40,
