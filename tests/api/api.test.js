@@ -7,7 +7,7 @@
  */
 
 const request = require('supertest');
-const app     = require('../../backend/src/server');
+const app = require('../src/server');
 
 // ─── Test Tokens (stored after auth) ─────────────────────────────────────────
 let adminToken, customerToken, customerId;
