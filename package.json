@@ -1,0 +1,21 @@
+{
+  "name": "shopqa-platform",
+  "version": "1.0.0",
+  "description": "Complete E-Commerce Platform for QA Automation Practice",
+  "scripts": {
+    "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm start\"",
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "seed": "curl -X POST http://localhost:5000/api/qa/seed",
+    "reset": "curl -X POST http://localhost:5000/api/qa/reset",
+    "test:api": "cd backend && npm test",
+    "test:e2e": "npx playwright test",
+    "test:selenium": "cd tests/selenium && pytest -v",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "concurrently": "^8.2.2"
+  }
+}

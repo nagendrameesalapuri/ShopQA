@@ -1,0 +1,53 @@
+# Node
+node_modules/
+npm-debug.log*
+.npm
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+build/
+dist/
+frontend/build/
+
+# Test artifacts
+coverage/
+playwright-report/
+playwright-results.json
+test-results/
+screenshots/
+reports/
+
+# Upload directory
+backend/uploads/
+
+# Database
+*.dump
+*.sql.gz
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+venv/
+.venv/
+
+# Docker
+.dockerignore
+
+# Logs
+*.log
+logs/
