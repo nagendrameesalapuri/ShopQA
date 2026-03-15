@@ -200,7 +200,7 @@ export function AdminProducts() {
     setDragOver(false);
     handleFileSelect(e.dataTransfer.files);
   };
-  const BASE_URL = "https://shopqa-backend.onrender.com";
+
   return (
     <div className="admin-layout">
       <AdminSidebar active="products" />
@@ -255,9 +255,11 @@ export function AdminProducts() {
                             gap: 10,
                           }}
                         >
-                          {console.log(`${API_BASE}${p.thumbnailthumbnail}`)}
+                          {console.log(
+                            `https://shopqa-backend.onrender.com${p.thumbnail}`,
+                          )}
                           <img
-                            src={`${API_BASE}${p.thumbnail}`}
+                            src={`https://shopqa-backend.onrender.com${p.thumbnail}`}
                             alt={p.name}
                             style={{
                               width: 40,
