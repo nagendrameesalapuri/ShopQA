@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import api from '../utils/api';
-import { useCart } from '../context/CartContext';
-import { useAuth } from '../context/AuthContext';
-import StarRating from '../components/common/StarRating';
-import { toast } from 'react-toastify';
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import api from "../utils/api";
+import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
+import StarRating from "../components/common/StarRating";
+import { toast } from "react-toastify";
 
 function ProductCard({ product }) {
   const { addToCart } = useCart();
@@ -14,9 +14,16 @@ function ProductCard({ product }) {
 
   const handleAdd = async (e) => {
     e.preventDefault();
-    if (!isAuthenticated) { window.location.href = '/login'; return; }
+    if (!isAuthenticated) {
+      window.location.href = "/login";
+      return;
+    }
     setAdding(true);
-    try { await addToCart(product.id); } finally { setAdding(false); }
+    try {
+      await addToCart(product.id);
+    } finally {
+      setAdding(false);
+    }
   };
 
   return (
@@ -24,40 +31,60 @@ function ProductCard({ product }) {
       <Link to={`/products/${product.slug || product.id}`}>
         <div className="home-product-img-wrap">
           <img
-            src={product.thumbnail || `https://picsum.photos/seed/${product.id}/280/280`}
+            src={
+              product.thumbnail
+                ? `https://shopqa-backend.onrender.com${product.thumbnail}`
+                : `https://picsum.photos/seed/${product.id}/300/300`
+            }
             alt={product.name}
             loading="lazy"
             data-testid="featured-product-image"
           />
           {isOOS && <div className="oos-tag">Out of Stock</div>}
           {product.compare_price > product.price && (
-            <div className="sale-tag">{Math.round((1 - product.price / product.compare_price) * 100)}% OFF</div>
+            <div className="sale-tag">
+              {Math.round((1 - product.price / product.compare_price) * 100)}%
+              OFF
+            </div>
           )}
         </div>
         <div className="home-product-info">
           <p className="home-product-cat">{product.category_name}</p>
-          <h4 className="home-product-name" data-testid="featured-product-name">{product.name}</h4>
+          <h4 className="home-product-name" data-testid="featured-product-name">
+            {product.name}
+          </h4>
           <div className="home-product-rating">
-            <StarRating rating={parseFloat(product.avg_rating) || 0} size="sm" />
+            <StarRating
+              rating={parseFloat(product.avg_rating) || 0}
+              size="sm"
+            />
             <span className="rating-count">({product.review_count || 0})</span>
           </div>
           <div className="home-product-prices">
             <span className="home-price" data-testid="featured-product-price">
-              ₹{Number(product.price).toLocaleString('en-IN')}
+              ₹{Number(product.price).toLocaleString("en-IN")}
             </span>
             {product.compare_price > product.price && (
-              <span className="home-compare">₹{Number(product.compare_price).toLocaleString('en-IN')}</span>
+              <span className="home-compare">
+                ₹{Number(product.compare_price).toLocaleString("en-IN")}
+              </span>
             )}
           </div>
         </div>
       </Link>
       <button
-        className={`btn ${isOOS ? 'btn-outline' : 'btn-accent'} btn-full home-add-btn`}
+        className={`btn ${isOOS ? "btn-outline" : "btn-accent"} btn-full home-add-btn`}
         onClick={handleAdd}
         disabled={isOOS || adding}
         data-testid="featured-add-to-cart"
       >
-        {adding ? <span className="spinner spinner-sm" /> : isOOS ? '🚫 Out of Stock' : '🛒 Add to Cart'}
+        {adding ? (
+          <span className="spinner spinner-sm" />
+        ) : isOOS ? (
+          "🚫 Out of Stock"
+        ) : (
+          "🛒 Add to Cart"
+        )}
       </button>
     </div>
   );
@@ -65,13 +92,22 @@ function ProductCard({ product }) {
 
 function CategoryCard({ category }) {
   const icons = {
-    electronics: '📱', clothing: '👗', books: '📚',
-    'home-kitchen': '🏠', 'sports-fitness': '🏋️', beauty: '💄',
-    'toys-games': '🎮', automotive: '🚗',
+    electronics: "📱",
+    clothing: "👗",
+    books: "📚",
+    "home-kitchen": "🏠",
+    "sports-fitness": "🏋️",
+    beauty: "💄",
+    "toys-games": "🎮",
+    automotive: "🚗",
   };
   return (
-    <Link to={`/products?category=${category.slug}`} className="cat-card" data-testid="category-card">
-      <div className="cat-icon">{icons[category.slug] || '🛍'}</div>
+    <Link
+      to={`/products?category=${category.slug}`}
+      className="cat-card"
+      data-testid="category-card"
+    >
+      <div className="cat-icon">{icons[category.slug] || "🛍"}</div>
       <p className="cat-name">{category.name}</p>
       <p className="cat-count">{category.product_count} items</p>
     </Link>
@@ -82,23 +118,31 @@ export default function Home() {
   const navigate = useNavigate();
   const [featured, setFeatured] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [searchQ, setSearchQ] = useState('');
+  const [searchQ, setSearchQ] = useState("");
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ products: 50, users: '1K+', orders: '5K+', rating: '4.8' });
+  const [stats, setStats] = useState({
+    products: 50,
+    users: "1K+",
+    orders: "5K+",
+    rating: "4.8",
+  });
 
   useEffect(() => {
     Promise.all([
-      api.get('/products/featured'),
-      api.get('/products/categories'),
-    ]).then(([featRes, catRes]) => {
-      setFeatured(featRes.data.products || []);
-      setCategories(catRes.data.categories || []);
-    }).finally(() => setLoading(false));
+      api.get("/products/featured"),
+      api.get("/products/categories"),
+    ])
+      .then(([featRes, catRes]) => {
+        setFeatured(featRes.data.products || []);
+        setCategories(catRes.data.categories || []);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (searchQ.trim()) navigate(`/products?search=${encodeURIComponent(searchQ.trim())}`);
+    if (searchQ.trim())
+      navigate(`/products?search=${encodeURIComponent(searchQ.trim())}`);
   };
 
   return (
@@ -108,54 +152,93 @@ export default function Home() {
         <div className="hero-bg" />
         <div className="container">
           <div className="hero-content">
-            <div className="hero-badge" data-testid="hero-badge">🎉 Built for QA Engineers</div>
+            <div className="hero-badge" data-testid="hero-badge">
+              🎉 Built for QA Engineers
+            </div>
             <h1 className="hero-title" data-testid="hero-title">
-              Practice<br />
-              <span className="hero-accent">Real Automation</span><br />
+              Practice
+              <br />
+              <span className="hero-accent">Real Automation</span>
+              <br />
               on Real E-Commerce
             </h1>
             <p className="hero-desc" data-testid="hero-desc">
-              50+ products, full checkout flow, payment simulation, admin panel, and dedicated QA helper APIs. Everything you need to master test automation.
+              50+ products, full checkout flow, payment simulation, admin panel,
+              and dedicated QA helper APIs. Everything you need to master test
+              automation.
             </p>
 
-            <form onSubmit={handleSearch} className="hero-search" role="search" data-testid="hero-search-form">
+            <form
+              onSubmit={handleSearch}
+              className="hero-search"
+              role="search"
+              data-testid="hero-search-form"
+            >
               <input
                 type="search"
                 className="hero-search-input"
                 placeholder="Search products, brands, categories…"
                 value={searchQ}
-                onChange={e => setSearchQ(e.target.value)}
+                onChange={(e) => setSearchQ(e.target.value)}
                 data-testid="hero-search-input"
                 aria-label="Search products"
               />
-              <button type="submit" className="btn btn-accent hero-search-btn" data-testid="hero-search-btn">
+              <button
+                type="submit"
+                className="btn btn-accent hero-search-btn"
+                data-testid="hero-search-btn"
+              >
                 Search
               </button>
             </form>
 
             <div className="hero-tags" data-testid="hero-tags">
-              {['iPhone 15', 'MacBook Air', 'Nike Shoes', 'Atomic Habits', 'Instant Pot'].map(tag => (
-                <button key={tag} className="hero-tag" onClick={() => navigate(`/products?search=${tag}`)} data-testid={`hero-tag-${tag.replace(/\s/g, '-').toLowerCase()}`}>
+              {[
+                "iPhone 15",
+                "MacBook Air",
+                "Nike Shoes",
+                "Atomic Habits",
+                "Instant Pot",
+              ].map((tag) => (
+                <button
+                  key={tag}
+                  className="hero-tag"
+                  onClick={() => navigate(`/products?search=${tag}`)}
+                  data-testid={`hero-tag-${tag.replace(/\s/g, "-").toLowerCase()}`}
+                >
                   {tag}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="hero-illustration" data-testid="hero-illustration" aria-hidden="true">
+          <div
+            className="hero-illustration"
+            data-testid="hero-illustration"
+            aria-hidden="true"
+          >
             <div className="hero-card hero-card-1">
               <div className="hc-icon">📱</div>
-              <div><p className="hc-name">iPhone 15 Pro</p><p className="hc-price">₹1,34,900</p></div>
+              <div>
+                <p className="hc-name">iPhone 15 Pro</p>
+                <p className="hc-price">₹1,34,900</p>
+              </div>
               <div className="hc-badge">⭐ 4.8</div>
             </div>
             <div className="hero-card hero-card-2">
               <div className="hc-icon">💻</div>
-              <div><p className="hc-name">MacBook Air M3</p><p className="hc-price">₹1,14,900</p></div>
+              <div>
+                <p className="hc-name">MacBook Air M3</p>
+                <p className="hc-price">₹1,14,900</p>
+              </div>
               <div className="hc-badge success">✓ In Stock</div>
             </div>
             <div className="hero-card hero-card-3">
               <div className="hc-icon">🎧</div>
-              <div><p className="hc-name">Sony WH-1000XM5</p><p className="hc-price">₹29,990</p></div>
+              <div>
+                <p className="hc-name">Sony WH-1000XM5</p>
+                <p className="hc-price">₹29,990</p>
+              </div>
               <div className="hc-badge">🛒 Added</div>
             </div>
           </div>
@@ -167,14 +250,16 @@ export default function Home() {
         <div className="container">
           <div className="stats-grid">
             {[
-              { label: 'Products', value: '50+', icon: '📦' },
-              { label: 'Test Scenarios', value: '100+', icon: '🧪' },
-              { label: 'API Endpoints', value: '40+', icon: '🔌' },
-              { label: 'Avg Rating', value: '4.8★', icon: '⭐' },
-            ].map(s => (
+              { label: "Products", value: "50+", icon: "📦" },
+              { label: "Test Scenarios", value: "100+", icon: "🧪" },
+              { label: "API Endpoints", value: "40+", icon: "🔌" },
+              { label: "Avg Rating", value: "4.8★", icon: "⭐" },
+            ].map((s) => (
               <div key={s.label} className="stat-item" data-testid="stat-item">
                 <span className="stat-icon-sm">{s.icon}</span>
-                <span className="stat-value-sm" data-testid="stat-value">{s.value}</span>
+                <span className="stat-value-sm" data-testid="stat-value">
+                  {s.value}
+                </span>
                 <span className="stat-label-sm">{s.label}</span>
               </div>
             ))}
@@ -187,15 +272,27 @@ export default function Home() {
         <div className="container">
           <div className="section-header">
             <h2 className="section-title">Shop by Category</h2>
-            <Link to="/products" className="section-link" data-testid="view-all-categories">View All →</Link>
+            <Link
+              to="/products"
+              className="section-link"
+              data-testid="view-all-categories"
+            >
+              View All →
+            </Link>
           </div>
           {loading ? (
             <div className="cat-grid">
-              {Array(8).fill(0).map((_, i) => <div key={i} className="skeleton cat-skeleton" />)}
+              {Array(8)
+                .fill(0)
+                .map((_, i) => (
+                  <div key={i} className="skeleton cat-skeleton" />
+                ))}
             </div>
           ) : (
             <div className="cat-grid" data-testid="category-grid">
-              {categories.map(cat => <CategoryCard key={cat.id} category={cat} />)}
+              {categories.map((cat) => (
+                <CategoryCard key={cat.id} category={cat} />
+              ))}
             </div>
           )}
         </div>
@@ -206,17 +303,34 @@ export default function Home() {
         <div className="container">
           <div className="section-header">
             <h2 className="section-title">⭐ Featured Products</h2>
-            <Link to="/products?featured=true" className="section-link" data-testid="view-all-featured">View All →</Link>
+            <Link
+              to="/products?featured=true"
+              className="section-link"
+              data-testid="view-all-featured"
+            >
+              View All →
+            </Link>
           </div>
           {loading ? (
             <div className="home-products-grid">
-              {Array(8).fill(0).map((_, i) => (
-                <div key={i} className="skeleton" style={{ height: 380, borderRadius: 12 }} />
-              ))}
+              {Array(8)
+                .fill(0)
+                .map((_, i) => (
+                  <div
+                    key={i}
+                    className="skeleton"
+                    style={{ height: 380, borderRadius: 12 }}
+                  />
+                ))}
             </div>
           ) : (
-            <div className="home-products-grid" data-testid="featured-products-grid">
-              {featured.map(p => <ProductCard key={p.id} product={p} />)}
+            <div
+              className="home-products-grid"
+              data-testid="featured-products-grid"
+            >
+              {featured.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
             </div>
           )}
         </div>
@@ -226,19 +340,58 @@ export default function Home() {
       <section className="qa-banner" data-testid="qa-banner">
         <div className="container">
           <h2 className="qa-banner-title">Built for Automation Practice</h2>
-          <p className="qa-banner-sub">Every element has data-testid attributes. Every scenario is reproducible.</p>
+          <p className="qa-banner-sub">
+            Every element has data-testid attributes. Every scenario is
+            reproducible.
+          </p>
           <div className="qa-features-grid" data-testid="qa-features-grid">
             {[
-              { icon: '🎭', title: 'Playwright E2E', desc: '40+ tests across auth, catalog, cart, checkout, admin' },
-              { icon: '🔌', title: 'API Testing', desc: '50+ API test cases with positive, negative & edge scenarios' },
-              { icon: '🧪', title: 'QA Helper APIs', desc: 'Reset data, mock payments, toggle stock, expire tokens' },
-              { icon: '🐳', title: 'Docker Ready', desc: 'One command to start full stack: DB + Backend + Frontend' },
-              { icon: '⚙️', title: 'CI/CD Pipeline', desc: '7-job GitHub Actions: lint, test, E2E, security, deploy' },
-              { icon: '📚', title: 'Swagger Docs', desc: 'Full OpenAPI 3.0 docs at /api-docs with try-it-out' },
-              { icon: '💳', title: 'Payment Simulation', desc: 'Success/failure cards, UPI, PayPal, COD — all testable' },
-              { icon: '🔒', title: 'Auth Scenarios', desc: 'Lockout, token expiry, social login, role-based access' },
-            ].map(f => (
-              <div key={f.title} className="qa-feature-card" data-testid="qa-feature-card">
+              {
+                icon: "🎭",
+                title: "Playwright E2E",
+                desc: "40+ tests across auth, catalog, cart, checkout, admin",
+              },
+              {
+                icon: "🔌",
+                title: "API Testing",
+                desc: "50+ API test cases with positive, negative & edge scenarios",
+              },
+              {
+                icon: "🧪",
+                title: "QA Helper APIs",
+                desc: "Reset data, mock payments, toggle stock, expire tokens",
+              },
+              {
+                icon: "🐳",
+                title: "Docker Ready",
+                desc: "One command to start full stack: DB + Backend + Frontend",
+              },
+              {
+                icon: "⚙️",
+                title: "CI/CD Pipeline",
+                desc: "7-job GitHub Actions: lint, test, E2E, security, deploy",
+              },
+              {
+                icon: "📚",
+                title: "Swagger Docs",
+                desc: "Full OpenAPI 3.0 docs at /api-docs with try-it-out",
+              },
+              {
+                icon: "💳",
+                title: "Payment Simulation",
+                desc: "Success/failure cards, UPI, PayPal, COD — all testable",
+              },
+              {
+                icon: "🔒",
+                title: "Auth Scenarios",
+                desc: "Lockout, token expiry, social login, role-based access",
+              },
+            ].map((f) => (
+              <div
+                key={f.title}
+                className="qa-feature-card"
+                data-testid="qa-feature-card"
+              >
                 <div className="qa-feature-icon">{f.icon}</div>
                 <h4 className="qa-feature-title">{f.title}</h4>
                 <p className="qa-feature-desc">{f.desc}</p>
@@ -246,8 +399,23 @@ export default function Home() {
             ))}
           </div>
           <div className="qa-banner-cta">
-            <a href="http://localhost:5000/api-docs" target="_blank" rel="noreferrer" className="btn btn-accent btn-lg" data-testid="cta-swagger">View API Docs</a>
-            <Link to="/products" className="btn btn-outline btn-lg" data-testid="cta-products" style={{ color: '#fff', borderColor: '#fff' }}>Browse Products</Link>
+            <a
+              href="http://localhost:5000/api-docs"
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-accent btn-lg"
+              data-testid="cta-swagger"
+            >
+              View API Docs
+            </a>
+            <Link
+              to="/products"
+              className="btn btn-outline btn-lg"
+              data-testid="cta-products"
+              style={{ color: "#fff", borderColor: "#fff" }}
+            >
+              Browse Products
+            </Link>
           </div>
         </div>
       </section>
@@ -257,32 +425,74 @@ export default function Home() {
         <div className="container">
           <div className="section-header">
             <h2 className="section-title">🔥 Deals of the Day</h2>
-            <Link to="/products?sort=price_asc" className="section-link">Shop All Deals →</Link>
+            <Link to="/products?sort=price_asc" className="section-link">
+              Shop All Deals →
+            </Link>
           </div>
           <div className="deals-grid" data-testid="deals-grid">
-            <div className="deal-card deal-card-main" data-testid="deal-card-main">
+            <div
+              className="deal-card deal-card-main"
+              data-testid="deal-card-main"
+            >
               <div className="deal-badge">LIMITED OFFER</div>
               <p className="deal-category">Electronics</p>
               <h3 className="deal-title">iPhone 15 Pro</h3>
-              <p className="deal-desc">A17 Pro chip, titanium design, and USB-C. The most advanced iPhone ever.</p>
+              <p className="deal-desc">
+                A17 Pro chip, titanium design, and USB-C. The most advanced
+                iPhone ever.
+              </p>
               <div className="deal-price">
                 <span className="deal-current">₹1,34,900</span>
                 <span className="deal-original">₹1,49,900</span>
               </div>
-              <Link to="/products?search=iphone" className="btn btn-accent">Shop Now</Link>
+              <Link to="/products?search=iphone" className="btn btn-accent">
+                Shop Now
+              </Link>
             </div>
             <div className="deals-secondary" data-testid="deals-secondary">
               {[
-                { icon: '📚', cat: 'Books', name: 'Atomic Habits', price: '₹499', orig: '₹699', link: '?search=atomic' },
-                { icon: '🎧', cat: 'Electronics', name: 'Sony WH-1000XM5', price: '₹29,990', orig: '₹34,990', link: '?search=sony' },
-                { icon: '👟', cat: 'Clothing', name: 'Nike Air Force 1', price: '₹8,495', orig: '₹9,995', link: '?search=nike' },
-              ].map(d => (
-                <Link key={d.name} to={`/products${d.link}`} className="deal-small" data-testid="deal-small-card">
+                {
+                  icon: "📚",
+                  cat: "Books",
+                  name: "Atomic Habits",
+                  price: "₹499",
+                  orig: "₹699",
+                  link: "?search=atomic",
+                },
+                {
+                  icon: "🎧",
+                  cat: "Electronics",
+                  name: "Sony WH-1000XM5",
+                  price: "₹29,990",
+                  orig: "₹34,990",
+                  link: "?search=sony",
+                },
+                {
+                  icon: "👟",
+                  cat: "Clothing",
+                  name: "Nike Air Force 1",
+                  price: "₹8,495",
+                  orig: "₹9,995",
+                  link: "?search=nike",
+                },
+              ].map((d) => (
+                <Link
+                  key={d.name}
+                  to={`/products${d.link}`}
+                  className="deal-small"
+                  data-testid="deal-small-card"
+                >
                   <div className="deal-small-icon">{d.icon}</div>
                   <div className="deal-small-info">
                     <p className="deal-small-cat">{d.cat}</p>
                     <p className="deal-small-name">{d.name}</p>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "baseline",
+                      }}
+                    >
                       <span className="deal-small-price">{d.price}</span>
                       <span className="deal-small-orig">{d.orig}</span>
                     </div>

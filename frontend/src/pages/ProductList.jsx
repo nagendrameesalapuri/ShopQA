@@ -1,26 +1,26 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
-import api from '../utils/api';
-import { useCart } from '../context/CartContext';
-import { useAuth } from '../context/AuthContext';
-import { toast } from 'react-toastify';
-import StarRating from '../components/common/StarRating';
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams, Link } from "react-router-dom";
+import api from "../utils/api";
+import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
+import { toast } from "react-toastify";
+import StarRating from "../components/common/StarRating";
 
 const SORT_OPTIONS = [
-  { value: 'newest',     label: 'Newest First' },
-  { value: 'popular',    label: 'Most Popular' },
-  { value: 'price_asc',  label: 'Price: Low to High' },
-  { value: 'price_desc', label: 'Price: High to Low' },
-  { value: 'rating_desc',label: 'Highest Rated' },
-  { value: 'name_asc',   label: 'A to Z' },
+  { value: "newest", label: "Newest First" },
+  { value: "popular", label: "Most Popular" },
+  { value: "price_asc", label: "Price: Low to High" },
+  { value: "price_desc", label: "Price: High to Low" },
+  { value: "rating_desc", label: "Highest Rated" },
+  { value: "name_asc", label: "A to Z" },
 ];
 
 const PRICE_RANGES = [
-  { label: 'Under ₹500',         min: 0,     max: 500 },
-  { label: '₹500 – ₹2,000',     min: 500,   max: 2000 },
-  { label: '₹2,000 – ₹10,000',  min: 2000,  max: 10000 },
-  { label: '₹10,000 – ₹50,000', min: 10000, max: 50000 },
-  { label: 'Above ₹50,000',      min: 50000, max: 999999 },
+  { label: "Under ₹500", min: 0, max: 500 },
+  { label: "₹500 – ₹2,000", min: 500, max: 2000 },
+  { label: "₹2,000 – ₹10,000", min: 2000, max: 10000 },
+  { label: "₹10,000 – ₹50,000", min: 10000, max: 50000 },
+  { label: "Above ₹50,000", min: 50000, max: 999999 },
 ];
 
 // ── Product Card ────────────────────────────────────────────────────────────
@@ -32,35 +32,69 @@ function ProductCard({ product }) {
 
   const handleAddToCart = async (e) => {
     e.preventDefault();
-    if (!isAuthenticated) { window.location.href = '/login'; return; }
+    if (!isAuthenticated) {
+      window.location.href = "/login";
+      return;
+    }
     setAdding(true);
-    try { await addToCart(product.id); }
-    finally { setAdding(false); }
+    try {
+      await addToCart(product.id);
+    } finally {
+      setAdding(false);
+    }
   };
 
   return (
-    <div className="product-card" data-testid="product-card" data-product-id={product.id}>
-      <Link to={`/products/${product.slug || product.id}`} className="product-card-link">
+    <div
+      className="product-card"
+      data-testid="product-card"
+      data-product-id={product.id}
+    >
+      <Link
+        to={`/products/${product.slug || product.id}`}
+        className="product-card-link"
+      >
         <div className="product-image-wrap">
           <img
-            src={product.thumbnail || `https://picsum.photos/seed/${product.id}/300/300`}
+            src={
+              product.thumbnail
+                ? `https://shopqa-backend.onrender.com${product.thumbnail}`
+                : `https://picsum.photos/seed/${product.id}/300/300`
+            }
             alt={product.name}
             className="product-image"
             loading="lazy"
             data-testid="product-image"
           />
-          {isOutOfStock && <div className="out-of-stock-overlay" data-testid="out-of-stock-badge">Out of Stock</div>}
-          {product.compare_price > product.price && (
-            <div className="discount-badge" data-testid="discount-badge">
-              {Math.round((1 - product.price / product.compare_price) * 100)}% OFF
+          {isOutOfStock && (
+            <div
+              className="out-of-stock-overlay"
+              data-testid="out-of-stock-badge"
+            >
+              Out of Stock
             </div>
           )}
-          {product.is_featured && <div className="featured-badge">⭐ Featured</div>}
+          {product.compare_price > product.price && (
+            <div className="discount-badge" data-testid="discount-badge">
+              {Math.round((1 - product.price / product.compare_price) * 100)}%
+              OFF
+            </div>
+          )}
+          {product.is_featured && (
+            <div className="featured-badge">⭐ Featured</div>
+          )}
         </div>
 
         <div className="product-info">
-          <p className="product-category text-xs text-muted" data-testid="product-category">{product.category_name}</p>
-          <h3 className="product-name" data-testid="product-name">{product.name}</h3>
+          <p
+            className="product-category text-xs text-muted"
+            data-testid="product-category"
+          >
+            {product.category_name}
+          </p>
+          <h3 className="product-name" data-testid="product-name">
+            {product.name}
+          </h3>
           <p className="product-brand text-sm text-muted">{product.brand}</p>
 
           <div className="product-rating" data-testid="product-rating">
@@ -70,34 +104,43 @@ function ProductCard({ product }) {
 
           <div className="product-price-row">
             <span className="product-price" data-testid="product-price">
-              ₹{Number(product.price).toLocaleString('en-IN')}
+              ₹{Number(product.price).toLocaleString("en-IN")}
             </span>
             {product.compare_price > product.price && (
               <span className="product-compare-price">
-                ₹{Number(product.compare_price).toLocaleString('en-IN')}
+                ₹{Number(product.compare_price).toLocaleString("en-IN")}
               </span>
             )}
           </div>
 
           <div className="product-stock text-xs" data-testid="product-stock">
-            {product.stock > 0
-              ? product.stock <= 5
-                ? <span className="text-warning">Only {product.stock} left!</span>
-                : <span className="text-success">In Stock</span>
-              : <span className="text-danger">Out of Stock</span>
-            }
+            {product.stock > 0 ? (
+              product.stock <= 5 ? (
+                <span className="text-warning">Only {product.stock} left!</span>
+              ) : (
+                <span className="text-success">In Stock</span>
+              )
+            ) : (
+              <span className="text-danger">Out of Stock</span>
+            )}
           </div>
         </div>
       </Link>
 
       <button
-        className={`btn ${isOutOfStock ? 'btn-outline' : 'btn-accent'} btn-full add-to-cart-btn`}
+        className={`btn ${isOutOfStock ? "btn-outline" : "btn-accent"} btn-full add-to-cart-btn`}
         onClick={handleAddToCart}
         disabled={isOutOfStock || adding}
         data-testid="add-to-cart-btn"
         aria-label={`Add ${product.name} to cart`}
       >
-        {adding ? <span className="spinner spinner-sm" /> : isOutOfStock ? '🚫 Out of Stock' : '🛒 Add to Cart'}
+        {adding ? (
+          <span className="spinner spinner-sm" />
+        ) : isOutOfStock ? (
+          "🚫 Out of Stock"
+        ) : (
+          "🛒 Add to Cart"
+        )}
       </button>
 
       <style>{`
@@ -134,12 +177,25 @@ function ProductCard({ product }) {
 function ProductCardSkeleton() {
   return (
     <div className="product-card" data-testid="product-skeleton">
-      <div className="skeleton" style={{ paddingTop: '100%', borderRadius: 0 }} />
-      <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div className="skeleton" style={{ height: 12, width: '60%' }} />
-        <div className="skeleton" style={{ height: 16, width: '90%' }} />
-        <div className="skeleton" style={{ height: 12, width: '40%' }} />
-        <div className="skeleton" style={{ height: 20, width: '50%', marginTop: 8 }} />
+      <div
+        className="skeleton"
+        style={{ paddingTop: "100%", borderRadius: 0 }}
+      />
+      <div
+        style={{
+          padding: 14,
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+        }}
+      >
+        <div className="skeleton" style={{ height: 12, width: "60%" }} />
+        <div className="skeleton" style={{ height: 16, width: "90%" }} />
+        <div className="skeleton" style={{ height: 12, width: "40%" }} />
+        <div
+          className="skeleton"
+          style={{ height: 20, width: "50%", marginTop: 8 }}
+        />
       </div>
     </div>
   );
@@ -153,7 +209,7 @@ export default function ProductList() {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
-  const [viewMode, setViewMode] = useState('grid'); // grid | list
+  const [viewMode, setViewMode] = useState("grid"); // grid | list
   const [filterOpen, setFilterOpen] = useState(false);
 
   // Infinite scroll state
@@ -161,40 +217,49 @@ export default function ProductList() {
   const loaderRef = useRef(null);
 
   // Filter state from URL
-  const page     = parseInt(searchParams.get('page')    || '1');
-  const search   = searchParams.get('search')   || '';
-  const category = searchParams.get('category') || '';
-  const sort     = searchParams.get('sort')     || 'newest';
-  const minPrice = searchParams.get('minPrice') || '';
-  const maxPrice = searchParams.get('maxPrice') || '';
-  const inStock  = searchParams.get('inStock')  || '';
-  const rating   = searchParams.get('rating')   || '';
+  const page = parseInt(searchParams.get("page") || "1");
+  const search = searchParams.get("search") || "";
+  const category = searchParams.get("category") || "";
+  const sort = searchParams.get("sort") || "newest";
+  const minPrice = searchParams.get("minPrice") || "";
+  const maxPrice = searchParams.get("maxPrice") || "";
+  const inStock = searchParams.get("inStock") || "";
+  const rating = searchParams.get("rating") || "";
 
-  const fetchProducts = useCallback(async (append = false) => {
-    setLoading(!append);
-    try {
-      const params = { page, limit: 12, sort };
-      if (search)   params.search   = search;
-      if (category) params.category = category;
-      if (minPrice) params.minPrice = minPrice;
-      if (maxPrice) params.maxPrice = maxPrice;
-      if (inStock)  params.inStock  = inStock;
-      if (rating)   params.rating   = rating;
+  const fetchProducts = useCallback(
+    async (append = false) => {
+      setLoading(!append);
+      try {
+        const params = { page, limit: 12, sort };
+        if (search) params.search = search;
+        if (category) params.category = category;
+        if (minPrice) params.minPrice = minPrice;
+        if (maxPrice) params.maxPrice = maxPrice;
+        if (inStock) params.inStock = inStock;
+        if (rating) params.rating = rating;
 
-      const { data } = await api.get('/products', { params });
-      setProducts(prev => append ? [...prev, ...data.products] : data.products);
-      setTotal(data.total);
-      setPages(data.pages);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, search, category, sort, minPrice, maxPrice, inStock, rating]);
+        const { data } = await api.get("/products", { params });
+        setProducts((prev) =>
+          append ? [...prev, ...data.products] : data.products,
+        );
+        setTotal(data.total);
+        setPages(data.pages);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [page, search, category, sort, minPrice, maxPrice, inStock, rating],
+  );
 
-  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
 
   // Fetch categories once
   useEffect(() => {
-    api.get('/products/categories').then(({ data }) => setCategories(data.categories));
+    api
+      .get("/products/categories")
+      .then(({ data }) => setCategories(data.categories));
   }, []);
 
   // Infinite scroll observer
@@ -203,20 +268,25 @@ export default function ProductList() {
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting && page < pages) {
-          setSearchParams(prev => { const p = new URLSearchParams(prev); p.set('page', page + 1); return p; });
+          setSearchParams((prev) => {
+            const p = new URLSearchParams(prev);
+            p.set("page", page + 1);
+            return p;
+          });
         }
       },
-      { threshold: 0.5 }
+      { threshold: 0.5 },
     );
     observer.observe(loaderRef.current);
     return () => observer.disconnect();
   }, [infiniteMode, page, pages, setSearchParams]);
 
   const updateFilter = (key, value) => {
-    setSearchParams(prev => {
+    setSearchParams((prev) => {
       const p = new URLSearchParams(prev);
-      if (value) p.set(key, value); else p.delete(key);
-      p.set('page', '1');
+      if (value) p.set(key, value);
+      else p.delete(key);
+      p.set("page", "1");
       return p;
     });
     setProducts([]);
@@ -227,28 +297,51 @@ export default function ProductList() {
     setProducts([]);
   };
 
-  const hasFilters = !!(search || category || minPrice || maxPrice || inStock || rating);
+  const hasFilters = !!(
+    search ||
+    category ||
+    minPrice ||
+    maxPrice ||
+    inStock ||
+    rating
+  );
 
   return (
-    <div style={{ padding: '24px 0' }}>
+    <div style={{ padding: "24px 0" }}>
       <div className="container">
         {/* Breadcrumb */}
         <div className="breadcrumb" data-testid="breadcrumb">
           <Link to="/">Home</Link>
           <span className="breadcrumb-sep">›</span>
           <span>Products</span>
-          {search && <><span className="breadcrumb-sep">›</span><span>Search: "{search}"</span></>}
-          {category && <><span className="breadcrumb-sep">›</span><span style={{ textTransform: 'capitalize' }}>{category.replace(/-/g, ' & ')}</span></>}
+          {search && (
+            <>
+              <span className="breadcrumb-sep">›</span>
+              <span>Search: "{search}"</span>
+            </>
+          )}
+          {category && (
+            <>
+              <span className="breadcrumb-sep">›</span>
+              <span style={{ textTransform: "capitalize" }}>
+                {category.replace(/-/g, " & ")}
+              </span>
+            </>
+          )}
         </div>
 
         {/* Header + Controls */}
         <div className="list-header" data-testid="list-header">
           <div>
             <h1 className="list-title">
-              {search ? `Results for "${search}"` : category ? category.replace(/-/g, ' & ') : 'All Products'}
+              {search
+                ? `Results for "${search}"`
+                : category
+                  ? category.replace(/-/g, " & ")
+                  : "All Products"}
             </h1>
             <p className="list-count text-muted" data-testid="product-count">
-              {loading ? 'Loading…' : `${total.toLocaleString()} products`}
+              {loading ? "Loading…" : `${total.toLocaleString()} products`}
             </p>
           </div>
 
@@ -257,40 +350,88 @@ export default function ProductList() {
             <select
               className="form-input"
               value={sort}
-              onChange={(e) => updateFilter('sort', e.target.value)}
+              onChange={(e) => updateFilter("sort", e.target.value)}
               data-testid="sort-select"
               aria-label="Sort products"
-              style={{ width: 'auto' }}
+              style={{ width: "auto" }}
             >
-              {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
             </select>
 
             {/* View toggle */}
             <div className="view-toggle" role="group" aria-label="View mode">
-              <button className={`btn btn-icon ${viewMode === 'grid' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setViewMode('grid')} title="Grid view" data-testid="view-grid">⊞</button>
-              <button className={`btn btn-icon ${viewMode === 'list' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setViewMode('list')} title="List view" data-testid="view-list">☰</button>
+              <button
+                className={`btn btn-icon ${viewMode === "grid" ? "btn-primary" : "btn-outline"}`}
+                onClick={() => setViewMode("grid")}
+                title="Grid view"
+                data-testid="view-grid"
+              >
+                ⊞
+              </button>
+              <button
+                className={`btn btn-icon ${viewMode === "list" ? "btn-primary" : "btn-outline"}`}
+                onClick={() => setViewMode("list")}
+                title="List view"
+                data-testid="view-list"
+              >
+                ☰
+              </button>
             </div>
 
             {/* Infinite scroll toggle */}
             <label className="toggle-label" title="Switch to infinite scroll">
-              <input type="checkbox" checked={infiniteMode} onChange={e => setInfiniteMode(e.target.checked)} data-testid="infinite-scroll-toggle" />
+              <input
+                type="checkbox"
+                checked={infiniteMode}
+                onChange={(e) => setInfiniteMode(e.target.checked)}
+                data-testid="infinite-scroll-toggle"
+              />
               <span>Infinite Scroll</span>
             </label>
 
             {/* Filter button (mobile) */}
-            <button className="btn btn-outline btn-sm" onClick={() => setFilterOpen(true)} data-testid="filter-btn">
-              🔧 Filters {hasFilters && <span className="badge badge-info" style={{ padding: '0 6px' }}>ON</span>}
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={() => setFilterOpen(true)}
+              data-testid="filter-btn"
+            >
+              🔧 Filters{" "}
+              {hasFilters && (
+                <span className="badge badge-info" style={{ padding: "0 6px" }}>
+                  ON
+                </span>
+              )}
             </button>
           </div>
         </div>
 
         <div className="list-layout">
           {/* ── Sidebar Filters ── */}
-          <aside className={`filters-panel ${filterOpen ? 'open' : ''}`} data-testid="filters-panel">
+          <aside
+            className={`filters-panel ${filterOpen ? "open" : ""}`}
+            data-testid="filters-panel"
+          >
             <div className="filter-header">
               <h3>Filters</h3>
-              {hasFilters && <button className="btn btn-ghost btn-sm" onClick={clearFilters} data-testid="clear-filters">Clear All</button>}
-              <button className="btn btn-ghost btn-sm filters-close" onClick={() => setFilterOpen(false)}>✕</button>
+              {hasFilters && (
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={clearFilters}
+                  data-testid="clear-filters"
+                >
+                  Clear All
+                </button>
+              )}
+              <button
+                className="btn btn-ghost btn-sm filters-close"
+                onClick={() => setFilterOpen(false)}
+              >
+                ✕
+              </button>
             </div>
 
             {/* Category filter */}
@@ -298,13 +439,32 @@ export default function ProductList() {
               <p className="filter-label">Category</p>
               <div className="filter-options">
                 <label className="filter-option">
-                  <input type="radio" name="category" value="" checked={!category} onChange={() => updateFilter('category', '')} data-testid="filter-cat-all" />
+                  <input
+                    type="radio"
+                    name="category"
+                    value=""
+                    checked={!category}
+                    onChange={() => updateFilter("category", "")}
+                    data-testid="filter-cat-all"
+                  />
                   <span>All Categories</span>
                 </label>
-                {categories.map(cat => (
+                {categories.map((cat) => (
                   <label key={cat.id} className="filter-option">
-                    <input type="radio" name="category" value={cat.slug} checked={category === cat.slug} onChange={() => updateFilter('category', cat.slug)} data-testid={`filter-cat-${cat.slug}`} />
-                    <span>{cat.name} <em className="text-muted text-xs">({cat.product_count})</em></span>
+                    <input
+                      type="radio"
+                      name="category"
+                      value={cat.slug}
+                      checked={category === cat.slug}
+                      onChange={() => updateFilter("category", cat.slug)}
+                      data-testid={`filter-cat-${cat.slug}`}
+                    />
+                    <span>
+                      {cat.name}{" "}
+                      <em className="text-muted text-xs">
+                        ({cat.product_count})
+                      </em>
+                    </span>
                   </label>
                 ))}
               </div>
@@ -314,21 +474,41 @@ export default function ProductList() {
             <div className="filter-section" data-testid="filter-price">
               <p className="filter-label">Price Range</p>
               <div className="filter-options">
-                {PRICE_RANGES.map(r => (
+                {PRICE_RANGES.map((r) => (
                   <label key={r.label} className="filter-option">
                     <input
-                      type="radio" name="price"
-                      checked={minPrice === String(r.min) && maxPrice === String(r.max)}
-                      onChange={() => { updateFilter('minPrice', String(r.min)); updateFilter('maxPrice', String(r.max)); }}
+                      type="radio"
+                      name="price"
+                      checked={
+                        minPrice === String(r.min) && maxPrice === String(r.max)
+                      }
+                      onChange={() => {
+                        updateFilter("minPrice", String(r.min));
+                        updateFilter("maxPrice", String(r.max));
+                      }}
                       data-testid={`filter-price-${r.min}`}
                     />
                     <span>{r.label}</span>
                   </label>
                 ))}
               </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <input className="form-input" type="number" placeholder="Min ₹" value={minPrice} onChange={(e) => updateFilter('minPrice', e.target.value)} data-testid="filter-min-price" />
-                <input className="form-input" type="number" placeholder="Max ₹" value={maxPrice} onChange={(e) => updateFilter('maxPrice', e.target.value)} data-testid="filter-max-price" />
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <input
+                  className="form-input"
+                  type="number"
+                  placeholder="Min ₹"
+                  value={minPrice}
+                  onChange={(e) => updateFilter("minPrice", e.target.value)}
+                  data-testid="filter-min-price"
+                />
+                <input
+                  className="form-input"
+                  type="number"
+                  placeholder="Max ₹"
+                  value={maxPrice}
+                  onChange={(e) => updateFilter("maxPrice", e.target.value)}
+                  data-testid="filter-max-price"
+                />
               </div>
             </div>
 
@@ -336,10 +516,20 @@ export default function ProductList() {
             <div className="filter-section" data-testid="filter-rating">
               <p className="filter-label">Minimum Rating</p>
               <div className="filter-options">
-                {[4, 3, 2, 1].map(r => (
+                {[4, 3, 2, 1].map((r) => (
                   <label key={r} className="filter-option">
-                    <input type="radio" name="rating" value={r} checked={rating === String(r)} onChange={() => updateFilter('rating', String(r))} data-testid={`filter-rating-${r}`} />
-                    <span>{'★'.repeat(r)}{'☆'.repeat(5 - r)} & above</span>
+                    <input
+                      type="radio"
+                      name="rating"
+                      value={r}
+                      checked={rating === String(r)}
+                      onChange={() => updateFilter("rating", String(r))}
+                      data-testid={`filter-rating-${r}`}
+                    />
+                    <span>
+                      {"★".repeat(r)}
+                      {"☆".repeat(5 - r)} & above
+                    </span>
                   </label>
                 ))}
               </div>
@@ -348,7 +538,14 @@ export default function ProductList() {
             {/* In stock */}
             <div className="filter-section" data-testid="filter-stock">
               <label className="filter-option">
-                <input type="checkbox" checked={inStock === 'true'} onChange={(e) => updateFilter('inStock', e.target.checked ? 'true' : '')} data-testid="filter-in-stock" />
+                <input
+                  type="checkbox"
+                  checked={inStock === "true"}
+                  onChange={(e) =>
+                    updateFilter("inStock", e.target.checked ? "true" : "")
+                  }
+                  data-testid="filter-in-stock"
+                />
                 <span>In Stock Only</span>
               </label>
             </div>
@@ -357,35 +554,82 @@ export default function ProductList() {
           {/* ── Product Grid ── */}
           <div className="products-area">
             {loading && products.length === 0 ? (
-              <div className={`product-grid ${viewMode === 'list' ? 'list-view' : ''}`}>
-                {Array(12).fill(0).map((_, i) => <ProductCardSkeleton key={i} />)}
+              <div
+                className={`product-grid ${viewMode === "list" ? "list-view" : ""}`}
+              >
+                {Array(12)
+                  .fill(0)
+                  .map((_, i) => (
+                    <ProductCardSkeleton key={i} />
+                  ))}
               </div>
             ) : products.length === 0 ? (
               <div className="empty-state" data-testid="empty-state">
-                <p style={{ fontSize: '3rem' }}>🔍</p>
+                <p style={{ fontSize: "3rem" }}>🔍</p>
                 <h3>No products found</h3>
-                <p className="text-muted">Try adjusting your filters or search query.</p>
-                <button className="btn btn-accent" onClick={clearFilters}>Clear Filters</button>
+                <p className="text-muted">
+                  Try adjusting your filters or search query.
+                </p>
+                <button className="btn btn-accent" onClick={clearFilters}>
+                  Clear Filters
+                </button>
               </div>
             ) : (
               <>
-                <div className={`product-grid ${viewMode === 'list' ? 'list-view' : ''}`} data-testid="product-grid">
-                  {products.map(p => <ProductCard key={p.id} product={p} />)}
+                <div
+                  className={`product-grid ${viewMode === "list" ? "list-view" : ""}`}
+                  data-testid="product-grid"
+                >
+                  {products.map((p) => (
+                    <ProductCard key={p.id} product={p} />
+                  ))}
                 </div>
 
                 {/* Pagination or infinite scroll loader */}
                 {infiniteMode ? (
-                  <div ref={loaderRef} style={{ height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 24 }}>
+                  <div
+                    ref={loaderRef}
+                    style={{
+                      height: 40,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginTop: 24,
+                    }}
+                  >
                     {page < pages && <span className="spinner spinner-lg" />}
                   </div>
                 ) : (
                   <div className="pagination" data-testid="pagination">
-                    <button className="page-btn" onClick={() => updateFilter('page', String(page - 1))} disabled={page === 1} data-testid="prev-page">← Prev</button>
+                    <button
+                      className="page-btn"
+                      onClick={() => updateFilter("page", String(page - 1))}
+                      disabled={page === 1}
+                      data-testid="prev-page"
+                    >
+                      ← Prev
+                    </button>
                     {Array.from({ length: Math.min(pages, 7) }, (_, i) => {
                       const p = i + 1;
-                      return <button key={p} className={`page-btn ${p === page ? 'active' : ''}`} onClick={() => updateFilter('page', String(p))} data-testid={`page-${p}`}>{p}</button>;
+                      return (
+                        <button
+                          key={p}
+                          className={`page-btn ${p === page ? "active" : ""}`}
+                          onClick={() => updateFilter("page", String(p))}
+                          data-testid={`page-${p}`}
+                        >
+                          {p}
+                        </button>
+                      );
                     })}
-                    <button className="page-btn" onClick={() => updateFilter('page', String(page + 1))} disabled={page === pages} data-testid="next-page">Next →</button>
+                    <button
+                      className="page-btn"
+                      onClick={() => updateFilter("page", String(page + 1))}
+                      disabled={page === pages}
+                      data-testid="next-page"
+                    >
+                      Next →
+                    </button>
                   </div>
                 )}
               </>

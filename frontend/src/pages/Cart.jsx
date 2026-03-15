@@ -1,28 +1,37 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useCart } from '../context/CartContext';
-import { useAuth } from '../context/AuthContext';
-import { toast } from 'react-toastify';
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
+import { toast } from "react-toastify";
 
 export default function Cart() {
   const navigate = useNavigate();
-  const { cart, loading, updateQuantity, removeItem, applyCoupon, removeCoupon } = useCart();
-  const [couponCode, setCouponCode] = useState('');
+  const {
+    cart,
+    loading,
+    updateQuantity,
+    removeItem,
+    applyCoupon,
+    removeCoupon,
+  } = useCart();
+  const [couponCode, setCouponCode] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
-  const [couponError, setCouponError] = useState('');
-  const [couponSuccess, setCouponSuccess] = useState('');
+  const [couponError, setCouponError] = useState("");
+  const [couponSuccess, setCouponSuccess] = useState("");
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return;
     setCouponLoading(true);
-    setCouponError('');
-    setCouponSuccess('');
+    setCouponError("");
+    setCouponSuccess("");
     try {
       const data = await applyCoupon(couponCode.trim().toUpperCase());
-      setCouponSuccess(`Coupon applied! You saved ₹${data.coupon.discount?.toFixed(2)}`);
-      toast.success('Coupon applied!');
+      setCouponSuccess(
+        `Coupon applied! You saved ₹${data.coupon.discount?.toFixed(2)}`,
+      );
+      toast.success("Coupon applied!");
     } catch (err) {
-      const msg = err.response?.data?.error || 'Invalid coupon code';
+      const msg = err.response?.data?.error || "Invalid coupon code";
       setCouponError(msg);
     } finally {
       setCouponLoading(false);
@@ -31,21 +40,30 @@ export default function Cart() {
 
   const handleRemoveCoupon = async () => {
     await removeCoupon();
-    setCouponCode('');
-    setCouponSuccess('');
-    toast.info('Coupon removed');
+    setCouponCode("");
+    setCouponSuccess("");
+    toast.info("Coupon removed");
   };
 
   if (loading) {
     return (
-      <div className="container" style={{ padding: '48px 0' }}>
-        <div style={{ display: 'flex', gap: 24 }}>
+      <div className="container" style={{ padding: "48px 0" }}>
+        <div style={{ display: "flex", gap: 24 }}>
           <div style={{ flex: 1 }}>
-            {Array(3).fill(0).map((_, i) => (
-              <div key={i} className="skeleton" style={{ height: 120, borderRadius: 12, marginBottom: 16 }} />
-            ))}
+            {Array(3)
+              .fill(0)
+              .map((_, i) => (
+                <div
+                  key={i}
+                  className="skeleton"
+                  style={{ height: 120, borderRadius: 12, marginBottom: 16 }}
+                />
+              ))}
           </div>
-          <div className="skeleton" style={{ width: 320, height: 320, borderRadius: 12 }} />
+          <div
+            className="skeleton"
+            style={{ width: 320, height: 320, borderRadius: 12 }}
+          />
         </div>
       </div>
     );
@@ -53,11 +71,29 @@ export default function Cart() {
 
   if (!cart?.items?.length) {
     return (
-      <div className="container" style={{ padding: '80px 0', textAlign: 'center' }} data-testid="empty-cart">
-        <div style={{ fontSize: '4rem', marginBottom: 16 }}>🛒</div>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', marginBottom: 8 }}>Your cart is empty</h2>
-        <p className="text-muted" style={{ marginBottom: 24 }}>Looks like you haven't added anything to your cart yet.</p>
-        <Link to="/products" className="btn btn-accent btn-lg" data-testid="continue-shopping-btn">
+      <div
+        className="container"
+        style={{ padding: "80px 0", textAlign: "center" }}
+        data-testid="empty-cart"
+      >
+        <div style={{ fontSize: "4rem", marginBottom: 16 }}>🛒</div>
+        <h2
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: "1.75rem",
+            marginBottom: 8,
+          }}
+        >
+          Your cart is empty
+        </h2>
+        <p className="text-muted" style={{ marginBottom: 24 }}>
+          Looks like you haven't added anything to your cart yet.
+        </p>
+        <Link
+          to="/products"
+          className="btn btn-accent btn-lg"
+          data-testid="continue-shopping-btn"
+        >
           Continue Shopping
         </Link>
       </div>
@@ -65,41 +101,79 @@ export default function Cart() {
   }
 
   return (
-    <div style={{ padding: '32px 0' }} data-testid="cart-page">
+    <div style={{ padding: "32px 0" }} data-testid="cart-page">
       <div className="container">
         <div className="breadcrumb">
-          <Link to="/">Home</Link><span className="breadcrumb-sep">›</span>
+          <Link to="/">Home</Link>
+          <span className="breadcrumb-sep">›</span>
           <span>Shopping Cart</span>
         </div>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', marginBottom: 32 }}>
-          Shopping Cart <span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>({cart.itemCount} items)</span>
+        <h1
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: "2rem",
+            marginBottom: 32,
+          }}
+        >
+          Shopping Cart{" "}
+          <span
+            style={{
+              fontSize: "1rem",
+              color: "var(--text-muted)",
+              fontFamily: "var(--font-sans)",
+            }}
+          >
+            ({cart.itemCount} items)
+          </span>
         </h1>
 
         <div className="cart-layout">
           {/* ── Items ── */}
           <div className="cart-items" data-testid="cart-items-list">
-            {cart.items.map(item => (
-              <div key={item.id} className="cart-item" data-testid="cart-item" data-product-id={item.product_id}>
+            {cart.items.map((item) => (
+              <div
+                key={item.id}
+                className="cart-item"
+                data-testid="cart-item"
+                data-product-id={item.product_id}
+              >
                 <img
-                  src={item.thumbnail || `https://picsum.photos/seed/${item.product_id}/80/80`}
+                  src={
+                    product.thumbnail
+                      ? `https://shopqa-backend.onrender.com${product.thumbnail}`
+                      : `https://picsum.photos/seed/${product.id}/300/300`
+                  }
                   alt={item.name}
                   className="cart-item-img"
                   data-testid="cart-item-image"
                 />
                 <div className="cart-item-info">
-                  <Link to={`/products/${item.product_id}`} className="cart-item-name" data-testid="cart-item-name">
+                  <Link
+                    to={`/products/${item.product_id}`}
+                    className="cart-item-name"
+                    data-testid="cart-item-name"
+                  >
                     {item.name}
                   </Link>
-                  <p className="cart-item-price text-muted text-sm" data-testid="cart-item-unit-price">
-                    ₹{Number(item.price).toLocaleString('en-IN')} each
+                  <p
+                    className="cart-item-price text-muted text-sm"
+                    data-testid="cart-item-unit-price"
+                  >
+                    ₹{Number(item.price).toLocaleString("en-IN")} each
                   </p>
                   {item.stock <= 5 && item.stock > 0 && (
-                    <p className="text-warning text-xs" data-testid="low-stock-warning">
+                    <p
+                      className="text-warning text-xs"
+                      data-testid="low-stock-warning"
+                    >
                       ⚠️ Only {item.stock} left!
                     </p>
                   )}
                   {item.stock === 0 && (
-                    <p className="text-danger text-xs" data-testid="oos-warning">
+                    <p
+                      className="text-danger text-xs"
+                      data-testid="oos-warning"
+                    >
                       🚫 Out of stock
                     </p>
                   )}
@@ -109,21 +183,31 @@ export default function Cart() {
                   <div className="qty-input" data-testid="cart-qty-control">
                     <button
                       className="qty-btn"
-                      onClick={() => item.quantity > 1 ? updateQuantity(item.id, item.quantity - 1) : removeItem(item.id)}
+                      onClick={() =>
+                        item.quantity > 1
+                          ? updateQuantity(item.id, item.quantity - 1)
+                          : removeItem(item.id)
+                      }
                       data-testid="qty-decrease"
                       aria-label="Decrease quantity"
-                    >−</button>
-                    <span className="qty-num" data-testid="cart-qty">{item.quantity}</span>
+                    >
+                      −
+                    </button>
+                    <span className="qty-num" data-testid="cart-qty">
+                      {item.quantity}
+                    </span>
                     <button
                       className="qty-btn"
                       onClick={() => updateQuantity(item.id, item.quantity + 1)}
                       disabled={item.quantity >= item.stock}
                       data-testid="qty-increase"
                       aria-label="Increase quantity"
-                    >+</button>
+                    >
+                      +
+                    </button>
                   </div>
                   <p className="cart-item-total" data-testid="cart-item-total">
-                    ₹{(item.quantity * item.price).toLocaleString('en-IN')}
+                    ₹{(item.quantity * item.price).toLocaleString("en-IN")}
                   </p>
                   <button
                     className="btn btn-ghost btn-icon remove-btn"
@@ -131,14 +215,20 @@ export default function Cart() {
                     data-testid="remove-item-btn"
                     aria-label={`Remove ${item.name} from cart`}
                     title="Remove item"
-                  >🗑</button>
+                  >
+                    🗑
+                  </button>
                 </div>
               </div>
             ))}
 
             {/* Continue Shopping */}
             <div style={{ paddingTop: 16 }}>
-              <Link to="/products" className="btn btn-outline" data-testid="continue-shopping-link">
+              <Link
+                to="/products"
+                className="btn btn-outline"
+                data-testid="continue-shopping-link"
+              >
                 ← Continue Shopping
               </Link>
             </div>
@@ -156,10 +246,18 @@ export default function Cart() {
                   <div>
                     <p className="coupon-code-badge">🎟 {cart.coupon.code}</p>
                     <p className="text-sm text-success">
-                      {cart.coupon.type === 'percentage' ? `${cart.coupon.value}% off` : `₹${cart.coupon.value} off`}
+                      {cart.coupon.type === "percentage"
+                        ? `${cart.coupon.value}% off`
+                        : `₹${cart.coupon.value} off`}
                     </p>
                   </div>
-                  <button className="btn btn-ghost btn-sm" onClick={handleRemoveCoupon} data-testid="remove-coupon-btn">✕</button>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={handleRemoveCoupon}
+                    data-testid="remove-coupon-btn"
+                  >
+                    ✕
+                  </button>
                 </div>
               ) : (
                 <div className="coupon-input-wrap">
@@ -168,8 +266,11 @@ export default function Cart() {
                     className="form-input"
                     placeholder="Enter coupon code"
                     value={couponCode}
-                    onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponError(''); }}
-                    onKeyDown={e => e.key === 'Enter' && handleApplyCoupon()}
+                    onChange={(e) => {
+                      setCouponCode(e.target.value.toUpperCase());
+                      setCouponError("");
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
                     data-testid="coupon-input"
                     aria-label="Coupon code"
                   />
@@ -179,13 +280,31 @@ export default function Cart() {
                     disabled={couponLoading || !couponCode.trim()}
                     data-testid="apply-coupon-btn"
                   >
-                    {couponLoading ? <span className="spinner spinner-sm" /> : 'Apply'}
+                    {couponLoading ? (
+                      <span className="spinner spinner-sm" />
+                    ) : (
+                      "Apply"
+                    )}
                   </button>
                 </div>
               )}
-              {couponError   && <p className="form-error" data-testid="coupon-error">{couponError}</p>}
-              {couponSuccess && <p className="text-success text-sm" data-testid="coupon-success">{couponSuccess}</p>}
-              <div className="coupon-hints text-xs text-muted" style={{ marginTop: 6 }}>
+              {couponError && (
+                <p className="form-error" data-testid="coupon-error">
+                  {couponError}
+                </p>
+              )}
+              {couponSuccess && (
+                <p
+                  className="text-success text-sm"
+                  data-testid="coupon-success"
+                >
+                  {couponSuccess}
+                </p>
+              )}
+              <div
+                className="coupon-hints text-xs text-muted"
+                style={{ marginTop: 6 }}
+              >
                 Try: WELCOME10, FLAT500, SUMMER25, FREESHIP
               </div>
             </div>
@@ -194,39 +313,53 @@ export default function Cart() {
             <div className="summary-totals" data-testid="summary-totals">
               <div className="summary-row">
                 <span>Subtotal</span>
-                <span data-testid="cart-subtotal">₹{Number(cart.subtotal).toLocaleString('en-IN')}</span>
+                <span data-testid="cart-subtotal">
+                  ₹{Number(cart.subtotal).toLocaleString("en-IN")}
+                </span>
               </div>
               {cart.discount > 0 && (
-                <div className="summary-row" style={{ color: 'var(--success)' }}>
+                <div
+                  className="summary-row"
+                  style={{ color: "var(--success)" }}
+                >
                   <span>Discount</span>
-                  <span data-testid="discount-amount">-₹{Number(cart.discount).toLocaleString('en-IN')}</span>
+                  <span data-testid="discount-amount">
+                    -₹{Number(cart.discount).toLocaleString("en-IN")}
+                  </span>
                 </div>
               )}
               <div className="summary-row">
                 <span>Shipping</span>
                 <span data-testid="cart-shipping">
-                  {cart.shipping === 0
-                    ? <span style={{ color: 'var(--success)' }}>FREE</span>
-                    : `₹${cart.shipping}`
-                  }
+                  {cart.shipping === 0 ? (
+                    <span style={{ color: "var(--success)" }}>FREE</span>
+                  ) : (
+                    `₹${cart.shipping}`
+                  )}
                 </span>
               </div>
               {cart.shipping === 0 && (
-                <p className="text-xs text-success" style={{ marginTop: -8 }}>🎉 Free shipping on orders above ₹500!</p>
+                <p className="text-xs text-success" style={{ marginTop: -8 }}>
+                  🎉 Free shipping on orders above ₹500!
+                </p>
               )}
               <div className="summary-row">
                 <span>Tax (18% GST)</span>
-                <span data-testid="cart-tax">₹{Number(cart.tax).toLocaleString('en-IN')}</span>
+                <span data-testid="cart-tax">
+                  ₹{Number(cart.tax).toLocaleString("en-IN")}
+                </span>
               </div>
               <div className="summary-row summary-total-row">
                 <span>Total</span>
-                <span data-testid="cart-total">₹{Number(cart.total).toLocaleString('en-IN')}</span>
+                <span data-testid="cart-total">
+                  ₹{Number(cart.total).toLocaleString("en-IN")}
+                </span>
               </div>
             </div>
 
             <button
               className="btn btn-accent btn-full btn-lg"
-              onClick={() => navigate('/checkout')}
+              onClick={() => navigate("/checkout")}
               data-testid="proceed-checkout-btn"
               style={{ marginTop: 20 }}
             >
@@ -234,9 +367,18 @@ export default function Cart() {
             </button>
 
             <div className="trust-badges" data-testid="trust-badges">
-              <div className="trust-badge"><span>🔒</span><span>Secure Checkout</span></div>
-              <div className="trust-badge"><span>↩️</span><span>Easy Returns</span></div>
-              <div className="trust-badge"><span>🚚</span><span>Fast Delivery</span></div>
+              <div className="trust-badge">
+                <span>🔒</span>
+                <span>Secure Checkout</span>
+              </div>
+              <div className="trust-badge">
+                <span>↩️</span>
+                <span>Easy Returns</span>
+              </div>
+              <div className="trust-badge">
+                <span>🚚</span>
+                <span>Fast Delivery</span>
+              </div>
             </div>
           </div>
         </div>
