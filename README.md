@@ -146,6 +146,7 @@ curl -X POST http://localhost:5000/api/qa/seed
 | Lazy Loading | Product list page | Skeleton → actual content |
 
 ---
+Test coverage : https://nagendra-shopqa-testcase-coverage.netlify.app/
 
 ## 🔌 API Reference
 
