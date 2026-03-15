@@ -9,8 +9,8 @@
 
 import { test, expect, Page } from '@playwright/test';
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
-const API_URL  = process.env.API_URL  || 'http://localhost:5000';
+const BASE_URL = process.env.BASE_URL || 'https://nagendra-shopqa.netlify.app';
+const API_URL  = process.env.API_URL  || 'https://shopqa-backend.onrender.com';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 async function loginAs(page: Page, role: 'admin' | 'customer' = 'customer') {
