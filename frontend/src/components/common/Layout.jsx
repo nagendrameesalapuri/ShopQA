@@ -183,7 +183,7 @@ export default function Layout() {
             </div>
           </div>
           <div className="footer-bottom">
-            <p>© 2024 ShopQA. Built for QA Automation Practice.</p>
+            <p>© 2026 ShopQA. Built for QA Automation Practice by Nagendra Meesala :).</p>
             <p className="text-muted text-sm">v1.0.0 | {process.env.NODE_ENV}</p>
           </div>
         </div>
