@@ -283,7 +283,9 @@ export default function ProductList() {
       const p = new URLSearchParams(prev);
       if (value) p.set(key, value);
       else p.delete(key);
-      p.set("page", "1");
+      // A pagination click must retain its requested page. Changing any other
+      // filter starts from the first matching result.
+      if (key !== "page") p.set("page", "1");
       return p;
     });
     setProducts([]);
@@ -532,19 +534,40 @@ export default function ProductList() {
               </div>
             </div>
 
-            {/* In stock */}
+            {/* Availability */}
             <div className="filter-section" data-testid="filter-stock">
-              <label className="filter-option">
-                <input
-                  type="checkbox"
-                  checked={inStock === "true"}
-                  onChange={(e) =>
-                    updateFilter("inStock", e.target.checked ? "true" : "")
-                  }
-                  data-testid="filter-in-stock"
-                />
-                <span>In Stock Only</span>
-              </label>
+              <p className="filter-label">Availability</p>
+              <div className="filter-options">
+                <label className="filter-option">
+                  <input
+                    type="radio"
+                    name="stock"
+                    checked={!inStock}
+                    onChange={() => updateFilter("inStock", "")}
+                  />
+                  <span>All Products</span>
+                </label>
+                <label className="filter-option">
+                  <input
+                    type="radio"
+                    name="stock"
+                    checked={inStock === "true"}
+                    onChange={() => updateFilter("inStock", "true")}
+                    data-testid="filter-in-stock"
+                  />
+                  <span>In Stock</span>
+                </label>
+                <label className="filter-option">
+                  <input
+                    type="radio"
+                    name="stock"
+                    checked={inStock === "false"}
+                    onChange={() => updateFilter("inStock", "false")}
+                    data-testid="filter-out-of-stock"
+                  />
+                  <span>Out of Stock</span>
+                </label>
+              </div>
             </div>
           </aside>
 

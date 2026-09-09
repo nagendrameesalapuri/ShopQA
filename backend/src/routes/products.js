@@ -112,6 +112,7 @@ router.get("/", optionalAuth, async (req, res, next) => {
       paramIdx++;
     }
     if (inStock === "true") conditions.push("p.stock > 0");
+    if (inStock === "false") conditions.push("p.stock = 0");
     if (featured === "true") conditions.push("p.is_featured = true");
     if (brand) {
       conditions.push(`p.brand ILIKE $${paramIdx}`);

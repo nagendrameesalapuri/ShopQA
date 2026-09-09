@@ -220,6 +220,17 @@ const getCartTotal = async (cartId) => {
   return { items: rows, subtotal };
 };
 
+// A coupon belongs to the current cart contents. Once the last item is gone,
+// it must not be silently carried into a later, newly created cart.
+const clearCouponIfCartIsEmpty = (cartId) =>
+  query(
+    `UPDATE carts
+     SET coupon_id = null
+     WHERE id = $1
+       AND NOT EXISTS (SELECT 1 FROM cart_items WHERE cart_id = $1)`,
+    [cartId],
+  );
+
 router.get("/", authenticate, async (req, res, next) => {
   try {
     const cart = await getOrCreateCart(req.user.id);
@@ -359,6 +370,7 @@ router.delete("/items/:itemId", authenticate, async (req, res, next) => {
       req.params.itemId,
       cart.id,
     ]);
+    await clearCouponIfCartIsEmpty(cart.id);
     res.json({ message: "Item removed from cart" });
   } catch (err) {
     next(err);
@@ -440,6 +452,7 @@ router.delete("/", authenticate, async (req, res, next) => {
   try {
     const cart = await getOrCreateCart(req.user.id);
     await query("DELETE FROM cart_items WHERE cart_id = $1", [cart.id]);
+    await clearCouponIfCartIsEmpty(cart.id);
     res.json({ message: "Cart cleared" });
   } catch (err) {
     next(err);
