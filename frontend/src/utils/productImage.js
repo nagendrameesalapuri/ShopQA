@@ -1,28 +1,28 @@
 const API_ORIGIN = "https://shopqa-backend.onrender.com";
 
-// Direct images selected for the exact model. Do not replace these with an
-// image-search URL: search services can return unrelated photos.
-const PRODUCT_IMAGES = {
-  "iphone 15 pro": "https://alephksa.com/cdn/shop/files/iPhone_15_Pro_Natural_Titanium_PDP_Image_Position-1__en-ME.jpg?v=1694758467&width=1445",
-  "samsung galaxy s24 ultra": "https://www.techbros.ae/cdn/shop/files/ae-galaxy-s24-s928-sm-s928bztcmea-539263955.png?v=1763218640&width=1214",
-  "macbook air m3": "https://www.custommacbd.com/cdn/shop/files/mba13-m3-spacegray-Custom-Mac-BD.png?v=1711705803",
-  "sony wh-1000xm5": "https://www.sony.ch/image/86ef18640c4199cc7ce7150a5143460a?fmt=png-alpha&wid=660",
+const escapeXml = (value) => String(value || "Product")
+  .replace(/&/g, "&amp;")
+  .replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;")
+  .replace(/'/g, "&apos;");
+
+const productTileUrl = (product, size) => {
+  const name = escapeXml(product.name || "Product");
+  const brand = escapeXml(product.brand || "ShopQA");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 400 400"><rect width="400" height="400" fill="#f1f5f9"/><rect x="38" y="38" width="324" height="324" rx="24" fill="#ffffff" stroke="#dbe4ee" stroke-width="3"/><path d="M160 126h80l14 38h-108l14-38zm-20 58h120v92H140z" fill="#ff6b14" opacity=".16"/><path d="M172 126h56l10 30h-76l10-30zm-18 58h92v70h-92z" fill="#ff6b14" opacity=".8"/><text x="200" y="296" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#0f172a">${name.slice(0, 28)}</text><text x="200" y="326" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" fill="#64748b">${brand.slice(0, 24)}</text></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 };
 
 /**
  * Return a usable image for every catalog product.
- * Uploaded images keep using the API. Curated external product images are
- * used only when their model matches exactly; unknown items get a labelled
- * tile rather than an unrelated photograph.
+ * Uploaded images keep using the API. Products without a verified asset get
+ * an embedded, labelled product tile—not an unrelated remote photograph.
  */
 export const productImageUrl = (image, product = {}, size = 800) => {
   if (image) {
     return /^https?:\/\//i.test(image) ? image : `${API_ORIGIN}${image}`;
   }
 
-  const exactImage = PRODUCT_IMAGES[String(product.name || "").toLowerCase()];
-  if (exactImage) return exactImage;
-
-  const label = encodeURIComponent(product.name || "Product image");
-  return `https://placehold.co/${size}x${size}/f1f5f9/0f172a?text=${label}`;
+  return productTileUrl(product, size);
 };
