@@ -12,6 +12,12 @@ require("dotenv").config();
 
 const app = express();
 
+// The API runs behind a reverse proxy in production (for example Nginx or a
+// hosting-provider load balancer). Trust only the closest proxy so `req.ip`
+// remains the real client IP for rate limiting and audit records.
+const trustProxy = process.env.TRUST_PROXY;
+app.set("trust proxy", trustProxy === undefined ? 1 : /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy === "true");
+
 // ─── Security & Middleware ────────────────────────────────────────────────────
 app.use(helmet({ contentSecurityPolicy: false }));
 const allowedOrigins = [
@@ -52,9 +58,16 @@ app.use(
 );
 
 // ─── Rate Limiting ────────────────────────────────────────────────────────────
+const positiveIntegerEnv = (name, fallback) => {
+  const value = Number.parseInt(process.env[name], 10);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+};
+
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX) || 10000,
+  windowMs: positiveIntegerEnv("RATE_LIMIT_WINDOW_MS", 15 * 60 * 1000),
+  // This is per client IP (not a shared proxy IP). Keep the default generous
+  // for normal storefront traffic while account lockout still protects login.
+  max: positiveIntegerEnv("RATE_LIMIT_MAX", 1000),
   message: {
     error: "Too many requests, please try again later.",
     code: "RATE_LIMIT_EXCEEDED",
