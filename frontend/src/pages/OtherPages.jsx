@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../utils/api";
 import { toast } from "react-toastify";
+import { productImageUrl } from "../utils/productImage";
 
 const STATUS_BADGE = {
   pending: "badge-warning",
@@ -341,10 +342,10 @@ export function OrderDetail() {
                     data-testid="order-item"
                   >
                     <img
-                      src={
-                        item.image_url ||
-                        `https://picsum.photos/seed/${item.product_id}/60/60`
-                      }
+                      src={productImageUrl(item.image_url, {
+                        id: item.product_id,
+                        name: item.product_name,
+                      }, 60)}
                       alt={item.product_name}
                       style={{
                         width: 60,
@@ -882,10 +883,7 @@ export function Wishlist() {
                 </button>
                 <Link to={`/products/${item.slug || item.id}`}>
                   <img
-                    src={
-                      item.thumbnail ||
-                      `https://picsum.photos/seed/${item.id}/200/200`
-                    }
+                    src={productImageUrl(item.thumbnail, item, 200)}
                     alt={item.name}
                     style={{
                       width: "100%",

@@ -5,6 +5,7 @@ import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import StarRating from "../components/common/StarRating";
 import { toast } from "react-toastify";
+import { productImageUrl } from "../utils/productImage";
 
 function ProductCard({ product }) {
   const { addToCart } = useCart();
@@ -32,9 +33,7 @@ function ProductCard({ product }) {
         <div className="home-product-img-wrap">
           <img
             src={
-              product.thumbnail
-                ? `https://shopqa-backend.onrender.com${product.thumbnail}`
-                : `https://picsum.photos/seed/${product.id}/300/300`
+              productImageUrl(product.thumbnail, product, 300)
             }
             alt={product.name}
             loading="lazy"

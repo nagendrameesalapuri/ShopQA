@@ -5,6 +5,7 @@ import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import StarRating from "../components/common/StarRating";
 import { toast } from "react-toastify";
+import { productImageUrl } from "../utils/productImage";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -128,10 +129,9 @@ export default function ProductDetail() {
       </div>
     );
   }
-  const BASE_URL = "https://shopqa-backend.onrender.com";
   const images = product.images?.length
-    ? product.images.map((img) => `${BASE_URL}${img}`)
-    : [`https://picsum.photos/seed/${product.id}/500/500`];
+    ? product.images.map((img) => productImageUrl(img, product, 800))
+    : [productImageUrl(product.thumbnail, product, 800)];
   const isOOS = product.stock === 0;
   const discount =
     product.compare_price > product.price
@@ -668,9 +668,7 @@ export default function ProductDetail() {
                 >
                   <img
                     src={
-                      r.thumbnail
-                        ? `https://shopqa-backend.onrender.com${r.thumbnail}`
-                        : `https://picsum.photos/seed/${r.id}/200/200`
+                      productImageUrl(r.thumbnail, r, 200)
                     }
                     alt={r.name}
                   />

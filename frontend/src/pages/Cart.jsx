@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
+import { productImageUrl } from "../utils/productImage";
 
 export default function Cart() {
   const navigate = useNavigate();
@@ -139,9 +140,7 @@ export default function Cart() {
               >
                 <img
                   src={
-                    item.thumbnail
-                      ? `https://shopqa-backend.onrender.com${item.thumbnail}`
-                      : `https://picsum.photos/seed/${item.id}/300/300`
+                    productImageUrl(item.thumbnail, item, 300)
                   }
                   alt={item.name}
                   className="cart-item-img"

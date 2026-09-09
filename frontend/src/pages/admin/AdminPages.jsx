@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
+import { productImageUrl } from "../../utils/productImage";
 
 // ── Shared Admin Sidebar ──────────────────────────────────────────────────────
 function AdminSidebar({ active }) {
@@ -255,11 +256,8 @@ export function AdminProducts() {
                             gap: 10,
                           }}
                         >
-                          {console.log(
-                            `https://shopqa-backend.onrender.com${p.thumbnail}`,
-                          )}
                           <img
-                            src={`https://shopqa-backend.onrender.com${p.thumbnail}`}
+                            src={productImageUrl(p.thumbnail, p, 80)}
                             alt={p.name}
                             style={{
                               width: 40,
@@ -269,7 +267,7 @@ export function AdminProducts() {
                             }}
                             onError={(e) => {
                               e.target.onerror = null;
-                              e.target.src = `https://picsum.photos/seed/${p.id}/40/40`;
+                              e.target.src = productImageUrl(null, p, 80);
                             }}
                           />
                           <div>

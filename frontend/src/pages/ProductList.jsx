@@ -5,6 +5,7 @@ import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
 import StarRating from "../components/common/StarRating";
+import { productImageUrl } from "../utils/productImage";
 
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest First" },
@@ -56,11 +57,7 @@ function ProductCard({ product }) {
       >
         <div className="product-image-wrap">
           <img
-            src={
-              product.thumbnail
-                ? `https://shopqa-backend.onrender.com${product.thumbnail}`
-                : `https://picsum.photos/seed/${product.id}/300/300`
-            }
+            src={productImageUrl(product.thumbnail, product, 300)}
             alt={product.name}
             className="product-image"
             loading="lazy"

@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import api from "../utils/api";
 import { toast } from "react-toastify";
 import DatePicker from "../components/common/DatePicker";
+import { productImageUrl } from "../utils/productImage";
 
 const STEPS = ["Shipping", "Delivery", "Payment", "Review"];
 
@@ -723,9 +724,7 @@ export default function Checkout() {
               >
                 <img
                   src={
-                    item.thumbnail
-                      ? `https://shopqa-backend.onrender.com${item.thumbnail}`
-                      : `https://picsum.photos/seed/${item.id}/300/300`
+                      productImageUrl(item.thumbnail, item, 300)
                   }
                   alt={item.name}
                   style={{
