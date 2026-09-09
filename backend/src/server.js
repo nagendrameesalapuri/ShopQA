@@ -23,18 +23,21 @@ app.use(helmet({ contentSecurityPolicy: false }));
 const allowedOrigins = [
   "http://localhost:3000",
   "https://nagendra-shopqa.netlify.app",
-];
+  process.env.FRONTEND_URL,
+].filter(Boolean);
 
 app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
+  cors((req, callback) => {
+    const origin = req.get("Origin");
+    // Swagger is served from this API, so its same-origin requests must be
+    // allowed as well. `trust proxy` above preserves the public HTTPS scheme.
+    const apiOrigin = `${req.protocol}://${req.get("host")}`;
+
+    if (!origin || allowedOrigins.includes(origin) || origin === apiOrigin) {
+      callback(null, { origin: true, credentials: true });
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
   }),
 );
 app.use(morgan("dev"));
