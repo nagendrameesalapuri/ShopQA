@@ -187,6 +187,7 @@
 const router = require("express").Router();
 const { query } = require("../config/database");
 const { authenticate } = require("../middleware/auth");
+const { chaosMiddleware } = require("../config/chaos");
 
 const getOrCreateCart = async (userId) => {
   let { rows } = await query("SELECT * FROM carts WHERE user_id = $1", [
@@ -272,7 +273,7 @@ router.get("/", authenticate, async (req, res, next) => {
   }
 });
 
-router.post("/items", authenticate, async (req, res, next) => {
+router.post("/items", chaosMiddleware, authenticate, async (req, res, next) => {
   try {
     const { productId, quantity = 1, variantId } = req.body;
     if (!productId)
@@ -384,8 +385,7 @@ router.post("/coupon", authenticate, async (req, res, next) => {
     const { subtotal } = await getCartTotal(cart.id);
     const { rows } = await query(
       `SELECT * FROM coupons WHERE code = UPPER($1) AND is_active = true
-       AND (expires_at IS NULL OR expires_at > NOW())
-       AND (usage_limit IS NULL OR usage_count < usage_limit)`,
+       AND (expires_at IS NULL OR expires_at > NOW())`,
       [code],
     );
     if (!rows.length)
@@ -393,6 +393,11 @@ router.post("/coupon", authenticate, async (req, res, next) => {
         .status(400)
         .json({ error: "Invalid or expired coupon", code: "INVALID_COUPON" });
     const coupon = rows[0];
+    if (coupon.usage_limit != null && coupon.usage_count >= coupon.usage_limit) {
+      return res
+        .status(400)
+        .json({ error: "Coupon usage limit reached", code: "COUPON_EXHAUSTED" });
+    }
     if (subtotal < parseFloat(coupon.min_order_amt)) {
       return res
         .status(400)

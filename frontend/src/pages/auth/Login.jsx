@@ -141,17 +141,6 @@ export default function Login() {
           </button>
         </form>
 
-        {/* Social Login */}
-        <div className="social-divider"><span>or continue with</span></div>
-        <div className="social-buttons">
-          <button className="btn btn-outline social-btn" data-testid="btn-google-login" onClick={() => toast.info('Google OAuth simulation')}>
-            <span>G</span> Google
-          </button>
-          <button className="btn btn-outline social-btn" data-testid="btn-github-login" onClick={() => toast.info('GitHub OAuth simulation')}>
-            <span>⌘</span> GitHub
-          </button>
-        </div>
-
         {/* Test Credentials */}
         <details className="test-creds" data-testid="test-credentials">
           <summary>🧪 Test Credentials</summary>
@@ -180,10 +169,6 @@ export default function Login() {
         .auth-row { display: flex; align-items: center; justify-content: space-between; }
         .checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 0.875rem; cursor: pointer; }
         .password-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 1rem; cursor: pointer; color: var(--text-muted); }
-        .social-divider { display: flex; align-items: center; gap: 12px; margin: 24px 0; color: var(--text-muted); font-size: 0.85rem; }
-        .social-divider::before, .social-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-        .social-buttons { display: flex; gap: 12px; }
-        .social-btn { flex: 1; gap: 8px; }
         .test-creds { margin-top: 24px; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
         .test-creds summary { padding: 10px 14px; cursor: pointer; font-size: 0.875rem; font-weight: 600; background: var(--bg-muted); }
         .creds-list { padding: 8px; display: flex; flex-direction: column; gap: 4px; }

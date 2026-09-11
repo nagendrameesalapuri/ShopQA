@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../utils/api';
+import RevenueChart from '../../components/common/RevenueChart';
 
 function StatCard({ label, value, sub, icon, color, testId }) {
   return (
@@ -23,6 +24,8 @@ const STATUS_COLORS = {
 export default function AdminDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [chaos, setChaos] = useState({ latencyMs: 0, errorRate: 0, errorStatus: 500 });
+  const [chaosSaving, setChaosSaving] = useState(false);
 
   useEffect(() => {
     api.get('/admin/dashboard')
@@ -30,6 +33,33 @@ export default function AdminDashboard() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    api.get('/qa/chaos').then(({ data }) => setChaos(data.chaos)).catch(() => {});
+  }, []);
+
+  const applyChaos = async (overrides) => {
+    setChaosSaving(true);
+    const next = { ...chaos, ...overrides };
+    try {
+      const { data } = await api.post('/qa/chaos', next);
+      setChaos(data.chaos);
+    } finally {
+      setChaosSaving(false);
+    }
+  };
+
+  const resetChaos = async () => {
+    setChaosSaving(true);
+    try {
+      const { data } = await api.post('/qa/chaos/reset');
+      setChaos(data.chaos);
+    } finally {
+      setChaosSaving(false);
+    }
+  };
+
+  const chaosActive = chaos.latencyMs > 0 || chaos.errorRate > 0;
 
   if (loading) return (
     <div className="admin-layout">
@@ -73,6 +103,68 @@ export default function AdminDashboard() {
           <StatCard label="Products"         value={stats?.total_products} sub={`${stats?.out_of_stock} out of stock`}   icon="🏷" color="#fff7ed" testId="total-products" />
         </div>
 
+        {/* Chaos Engineering Controls */}
+        <div className="card" style={{ marginTop: 24 }} data-testid="chaos-panel">
+          <div className="card-body">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <h3>🌪 Chaos Controls</h3>
+              <span className={`badge ${chaosActive ? "badge-warning" : "badge-neutral"}`} data-testid="chaos-status-badge">
+                {chaosActive ? "ACTIVE" : "OFF"}
+              </span>
+            </div>
+            <p className="text-muted text-sm" style={{ marginBottom: 16 }}>
+              Injects artificial latency/errors into the real product-list, product-detail,
+              and add-to-cart endpoints — practice Playwright network interception, retries,
+              and loading-state assertions against the live storefront UI.
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 16, alignItems: "end" }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Latency (ms)</label>
+                <input
+                  className="form-input"
+                  type="number"
+                  min="0"
+                  max="10000"
+                  value={chaos.latencyMs}
+                  onChange={(e) => setChaos((c) => ({ ...c, latencyMs: Number(e.target.value) }))}
+                  data-testid="chaos-latency-input"
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Error Rate (0-1)</label>
+                <input
+                  className="form-input"
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={chaos.errorRate}
+                  onChange={(e) => setChaos((c) => ({ ...c, errorRate: Number(e.target.value) }))}
+                  data-testid="chaos-error-rate-input"
+                />
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  className="btn btn-accent btn-sm"
+                  onClick={() => applyChaos(chaos)}
+                  disabled={chaosSaving}
+                  data-testid="chaos-apply-btn"
+                >
+                  Apply
+                </button>
+                <button
+                  className="btn btn-outline btn-sm"
+                  onClick={resetChaos}
+                  disabled={chaosSaving}
+                  data-testid="chaos-reset-btn"
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Recent Orders */}
         <div className="card" style={{ marginTop: 24 }} data-testid="recent-orders">
           <div className="card-body">
@@ -111,23 +203,12 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Sales chart (simple bar chart) */}
+        {/* Sales chart (real SVG bar chart) */}
         {salesChart?.length > 0 && (
           <div className="card" style={{ marginTop: 24 }} data-testid="sales-chart">
             <div className="card-body">
-              <h3 style={{ marginBottom: 16 }}>Revenue (Last 30 Days)</h3>
-              <div className="bar-chart" aria-label="Revenue bar chart">
-                {salesChart.slice(-14).map((d, i) => {
-                  const maxRev = Math.max(...salesChart.map(x => parseFloat(x.revenue)));
-                  const pct = maxRev > 0 ? (parseFloat(d.revenue) / maxRev) * 100 : 0;
-                  return (
-                    <div key={i} className="bar-col" title={`${d.date}: ₹${Number(d.revenue).toLocaleString('en-IN')}`} data-testid="bar-column">
-                      <div className="bar" style={{ height: `${Math.max(pct, 4)}%` }} />
-                      <span className="bar-label">{new Date(d.date).getDate()}</span>
-                    </div>
-                  );
-                })}
-              </div>
+              <h3 style={{ marginBottom: 16 }}>Revenue (Last 14 Days)</h3>
+              <RevenueChart data={salesChart.slice(-14)} />
             </div>
           </div>
         )}
@@ -149,10 +230,6 @@ export default function AdminDashboard() {
         .stat-value { font-size: 1.4rem; font-weight: 700; line-height: 1.2; }
         .stat-label { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
         .stat-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
-        .bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 160px; padding-bottom: 24px; border-bottom: 2px solid var(--border); }
-        .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; position: relative; }
-        .bar { width: 100%; background: var(--accent); border-radius: 4px 4px 0 0; transition: height 0.5s ease; min-height: 4px; }
-        .bar-label { font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; position: absolute; bottom: -20px; }
         @media (max-width: 1024px) { .stat-grid { grid-template-columns: 1fr 1fr; } }
         @media (max-width: 768px) { .admin-sidebar { display: none; } .admin-page { padding: 16px; } }
       `}</style>

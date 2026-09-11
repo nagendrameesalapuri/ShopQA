@@ -18,14 +18,20 @@ A complete e-commerce REST API designed specifically for QA engineers to practic
 ## Authentication
 Use the \`/api/auth/login\` endpoint to get a JWT token, then include it in the \`Authorization: Bearer <token>\` header.
 
-## Test Credentials
+<div>
+<div>
+
+### Test Credentials
 | Role | Email | Password |
 |------|-------|----------|
 | Admin | admin@shopqa.com | Password123! |
 | Customer | john@test.com | Password123! |
 | Customer | jane@test.com | Password123! |
 
-## Test Cards (Payment Simulation)
+</div>
+<div>
+
+### Test Cards (Payment Simulation)
 | Card Number | Outcome |
 |-------------|---------|
 | 4111111111111111 | Success |
@@ -33,10 +39,15 @@ Use the \`/api/auth/login\` endpoint to get a JWT token, then include it in the 
 | 4000000000000069 | Declined (expired) |
 | 4000000000009995 | Declined (do not honor) |
 
+</div>
+</div>
+
 ## Special Test Scenarios
 - **Account lockout**: Fail login 5 times to trigger lockout
-- **Token expiration**: Use \`/api/qa/users/:id/expire-tokens\` 
+- **Token expiration**: Use \`/api/qa/users/:id/expire-tokens\`
 - **Out of stock**: Use \`/api/qa/products/:id/stock\` with \`{"stock": 0}\`
+- **Chaos engineering**: \`POST /api/qa/chaos\` with \`{"latencyMs": 3000, "errorRate": 0.5}\` injects artificial delay/errors into the real product-list, product-detail, and add-to-cart endpoints — reset with \`POST /api/qa/chaos/reset\`
+- **Live order updates**: connect to \`ws://<host>/ws?token=<accessToken>\` — pushes an \`order:status\` message whenever an admin updates that user's order via \`PUT /api/orders/admin/:id/status\`
       `,
       contact: { name: "ShopQA Support", email: "qa@shopqa.com" },
       license: { name: "MIT" },

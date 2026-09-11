@@ -2,16 +2,31 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import SearchAutocomplete from './SearchAutocomplete';
 
 export default function Layout() {
   const { user, isAuthenticated, logout } = useAuth();
   const { itemCount } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchQ, setSearchQ] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
+
+  const [theme, setTheme] = useState(() => {
+    try {
+      const saved = localStorage.getItem('theme');
+      if (saved === 'dark' || saved === 'light') return saved;
+    } catch {}
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try { localStorage.setItem('theme', theme); } catch {}
+  }, [theme]);
+
+  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
 
   useEffect(() => {
     const handler = (e) => {
@@ -22,14 +37,6 @@ export default function Layout() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
-
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (searchQ.trim()) {
-      navigate(`/products?search=${encodeURIComponent(searchQ.trim())}`);
-      setSearchQ('');
-    }
-  };
 
   const handleLogout = async () => {
     await logout();
@@ -50,24 +57,21 @@ export default function Layout() {
             </Link>
 
             {/* Search */}
-            <form onSubmit={handleSearch} className="nav-search" role="search">
-              <input
-                type="search"
-                className="form-input nav-search-input"
-                placeholder="Search products..."
-                value={searchQ}
-                onChange={(e) => setSearchQ(e.target.value)}
-                data-testid="nav-search-input"
-                aria-label="Search products"
-              />
-              <button type="submit" className="btn btn-accent nav-search-btn" data-testid="nav-search-btn" aria-label="Search">
-                🔍
-              </button>
-            </form>
+            <SearchAutocomplete />
 
             {/* Nav Actions */}
             <div className="nav-actions">
               <Link to="/products" className="nav-link" data-testid="nav-products">Products</Link>
+
+              <button
+                className="nav-link theme-toggle-btn"
+                onClick={toggleTheme}
+                data-testid="theme-toggle"
+                aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+                title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+              >
+                {theme === 'dark' ? '☀️' : '🌙'}
+              </button>
 
               {isAuthenticated ? (
                 <>
@@ -264,6 +268,7 @@ export default function Layout() {
         .dropdown-item-danger { color: var(--danger); }
         .auth-links { display: flex; gap: 8px; }
         .hamburger { display: none; background: none; border: none; font-size: 1.4rem; color: var(--text-primary); }
+        .theme-toggle-btn { background: none; border: none; cursor: pointer; font-size: 1.1rem; }
         .category-bar { border-top: 1px solid var(--border); background: var(--bg-muted); }
         .category-links { display: flex; gap: 4px; overflow-x: auto; padding: 8px 0; scrollbar-width: none; }
         .category-links::-webkit-scrollbar { display: none; }

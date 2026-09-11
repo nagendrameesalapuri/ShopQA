@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './styles/global.css';
+import './webcomponents/trustBadge';
 
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';

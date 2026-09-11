@@ -16,6 +16,7 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const { v4: uuidv4 } = require("uuid");
+const { chaosMiddleware } = require("../config/chaos");
 
 // ─── Multer Setup ─────────────────────────────────────────────────────────────
 const storage = multer.diskStorage({
@@ -62,7 +63,7 @@ const upload = multer({
  *       200:
  *         description: Paginated product list
  */
-router.get("/", optionalAuth, async (req, res, next) => {
+router.get("/", chaosMiddleware, optionalAuth, async (req, res, next) => {
   try {
     const {
       page = 1,
@@ -230,7 +231,7 @@ router.get("/search/suggestions", async (req, res, next) => {
  *       200: { description: Product details }
  *       404: { description: Product not found }
  */
-router.get("/:id", optionalAuth, async (req, res, next) => {
+router.get("/:id", chaosMiddleware, optionalAuth, async (req, res, next) => {
   try {
     const { id } = req.params;
     const isUUID =
@@ -424,6 +425,194 @@ router.delete("/:id", authenticate, requireAdmin, async (req, res, next) => {
       req.params.id,
     ]);
     res.json({ message: "Product deactivated successfully" });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── Admin: Bulk Import (Excel/CSV upload → dynamic table) ───────────────────
+/**
+ * @swagger
+ * /api/products/bulk-import:
+ *   post:
+ *     summary: Bulk-create products from parsed Excel/CSV rows (admin only)
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [products]
+ *             properties:
+ *               products:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required: [name, price]
+ *                   properties:
+ *                     name: { type: string }
+ *                     price: { type: number }
+ *                     stock: { type: integer }
+ *                     brand: { type: string }
+ *                     description: { type: string }
+ *                     categoryId: { type: string }
+ *     responses:
+ *       201:
+ *         description: Import result — created rows plus any per-row errors
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 created: { type: array, items: { type: object } }
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       row: { type: integer }
+ *                       error: { type: string }
+ *                 total: { type: integer }
+ *       400: { description: No products provided }
+ *       401: { description: Unauthorized }
+ *       403: { description: Admin access required }
+ */
+router.post(
+  "/bulk-import",
+  authenticate,
+  requireAdmin,
+  async (req, res, next) => {
+    try {
+      const { products = [] } = req.body;
+      if (!Array.isArray(products) || products.length === 0) {
+        return res
+          .status(400)
+          .json({ error: "No products provided", code: "EMPTY_IMPORT" });
+      }
+
+      const created = [];
+      const errors = [];
+
+      for (let i = 0; i < products.length; i++) {
+        const row = products[i];
+        try {
+          if (!row.name || !row.price || Number(row.price) <= 0) {
+            errors.push({ row: i + 1, error: "Missing name or valid price" });
+            continue;
+          }
+          const slug =
+            String(row.name)
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-") +
+            "-" +
+            Date.now() +
+            "-" +
+            i;
+
+          const { rows } = await query(
+            `INSERT INTO products (
+              name, slug, description, price, brand, category_id, stock, is_featured
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, name, price, stock`,
+            [
+              row.name,
+              slug,
+              row.description || null,
+              parseFloat(row.price),
+              row.brand || null,
+              row.categoryId || null,
+              parseInt(row.stock || 0),
+              false,
+            ],
+          );
+          created.push(rows[0]);
+        } catch (rowErr) {
+          errors.push({ row: i + 1, error: rowErr.message });
+        }
+      }
+
+      res.status(201).json({ created, errors, total: products.length });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ─── Admin: Export Products as CSV (download + content validation) ───────────
+/**
+ * @swagger
+ * /api/products/export/csv:
+ *   get:
+ *     summary: Download the full product catalog as a CSV file (admin only)
+ *     tags: [Products]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: CSV file attachment
+ *         content:
+ *           text/csv:
+ *             schema: { type: string }
+ *       401: { description: Unauthorized }
+ *       403: { description: Admin access required }
+ */
+router.get("/export/csv", authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const { rows } = await query(`
+      SELECT p.id, p.name, p.sku, p.price, p.stock, p.brand,
+             c.name as category_name, p.is_featured, p.is_active, p.created_at
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      ORDER BY p.created_at DESC
+    `);
+
+    const escapeCsv = (val) => {
+      if (val === null || val === undefined) return "";
+      const s = String(val);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+
+    const headers = [
+      "id",
+      "name",
+      "sku",
+      "price",
+      "stock",
+      "brand",
+      "category",
+      "featured",
+      "active",
+      "created_at",
+    ];
+    const lines = [headers.join(",")];
+    for (const p of rows) {
+      lines.push(
+        [
+          p.id,
+          p.name,
+          p.sku,
+          p.price,
+          p.stock,
+          p.brand,
+          p.category_name,
+          p.is_featured,
+          p.is_active,
+          p.created_at?.toISOString(),
+        ]
+          .map(escapeCsv)
+          .join(","),
+      );
+    }
+    const csv = lines.join("\n");
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="products-export-${Date.now()}.csv"`,
+    );
+    res.send(csv);
   } catch (err) {
     next(err);
   }

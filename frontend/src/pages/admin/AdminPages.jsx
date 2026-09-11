@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import * as XLSX from "xlsx";
 import api from "../../utils/api";
 import { toast } from "react-toastify";
 import { productImageUrl } from "../../utils/productImage";
@@ -86,6 +87,13 @@ export function AdminProducts() {
   const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Bulk import (Excel → dynamic table)
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkRows, setBulkRows] = useState([]);
+  const [bulkFileName, setBulkFileName] = useState("");
+  const [bulkImporting, setBulkImporting] = useState(false);
+  const bulkFileInputRef = useRef(null);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -202,19 +210,175 @@ export function AdminProducts() {
     handleFileSelect(e.dataTransfer.files);
   };
 
+  // ── Popup window & new-tab helpers ──
+  const openQuickViewPopup = (product) => {
+    const url = `${window.location.origin}/products/${product.slug || product.id}`;
+    window.open(
+      url,
+      "productQuickView",
+      "width=480,height=640,menubar=no,toolbar=no,location=no,status=no",
+    );
+  };
+
+  const openInNewTab = (product) => {
+    const url = `${window.location.origin}/products/${product.slug || product.id}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  // ── CSV export (file download + content validation) ──
+  const handleExportCsv = async () => {
+    try {
+      const res = await api.get("/products/export/csv", {
+        responseType: "blob",
+      });
+      const blob = new Blob([res.data], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `products-export-${Date.now()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Products exported to CSV");
+    } catch (err) {
+      toast.error("Export failed");
+    }
+  };
+
+  // ── Bulk import: read Excel/CSV → dynamic table ──
+  const normalizeKey = (k) => String(k || "").trim().toLowerCase();
+
+  const handleBulkFileSelect = (file) => {
+    if (!file) return;
+    setBulkFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const workbook = XLSX.read(e.target.result, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+        const rows = json.map((raw) => {
+          const entry = {};
+          Object.keys(raw).forEach((k) => {
+            entry[normalizeKey(k)] = raw[k];
+          });
+          return {
+            name: entry.name || "",
+            price: entry.price || "",
+            stock: entry.stock || "",
+            brand: entry.brand || "",
+            category: entry.category || "",
+            description: entry.description || "",
+          };
+        });
+        setBulkRows(rows);
+      } catch (err) {
+        toast.error("Could not read file — is it a valid Excel/CSV?");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const updateBulkRow = (idx, field, value) => {
+    setBulkRows((rows) =>
+      rows.map((r, i) => (i === idx ? { ...r, [field]: value } : r)),
+    );
+  };
+
+  const removeBulkRow = (idx) => {
+    setBulkRows((rows) => rows.filter((_, i) => i !== idx));
+  };
+
+  const isBulkRowValid = (row) =>
+    row.name.trim() && Number(row.price) > 0 && Number(row.stock) >= 0;
+
+  const closeBulkModal = () => {
+    setBulkModalOpen(false);
+    setBulkRows([]);
+    setBulkFileName("");
+  };
+
+  const handleBulkImport = async () => {
+    const validRows = bulkRows.filter(isBulkRowValid);
+    if (!validRows.length) {
+      toast.error("No valid rows to import");
+      return;
+    }
+    setBulkImporting(true);
+    try {
+      const payload = validRows.map((r) => {
+        const cat = categories.find(
+          (c) => c.name.toLowerCase() === r.category.toLowerCase(),
+        );
+        return {
+          name: r.name,
+          price: r.price,
+          stock: r.stock,
+          brand: r.brand,
+          description: r.description,
+          categoryId: cat ? cat.id : null,
+        };
+      });
+      const { data } = await api.post("/products/bulk-import", {
+        products: payload,
+      });
+      toast.success(
+        `Imported ${data.created.length} product(s)${data.errors.length ? `, ${data.errors.length} skipped` : ""}`,
+      );
+      closeBulkModal();
+      fetchProducts();
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Bulk import failed");
+    } finally {
+      setBulkImporting(false);
+    }
+  };
+
+  const downloadBulkTemplate = () => {
+    const csv =
+      "name,price,stock,brand,category,description\nSample Product,999,50,BrandCo,Electronics,A sample product row\n";
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "bulk-import-template.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="admin-layout">
       <AdminSidebar active="products" />
       <main className="admin-page" data-testid="admin-products-page">
         <div className="admin-page-header">
           <h1 className="admin-title">Products</h1>
-          <button
-            className="btn btn-accent"
-            onClick={() => openModal()}
-            data-testid="btn-add-product"
-          >
-            + Add Product
-          </button>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              className="btn btn-outline"
+              onClick={handleExportCsv}
+              data-testid="btn-export-products"
+            >
+              ⬇️ Export CSV
+            </button>
+            <button
+              className="btn btn-outline"
+              onClick={() => setBulkModalOpen(true)}
+              data-testid="btn-bulk-import"
+            >
+              📊 Bulk Import (Excel)
+            </button>
+            <button
+              className="btn btn-accent"
+              onClick={() => openModal()}
+              data-testid="btn-add-product"
+            >
+              + Add Product
+            </button>
+          </div>
         </div>
 
         <div style={{ marginBottom: 20 }}>
@@ -322,13 +486,29 @@ export function AdminProducts() {
                         </span>
                       </td>
                       <td>
-                        <div style={{ display: "flex", gap: 8 }}>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                           <button
                             className="btn btn-outline btn-sm"
                             onClick={() => openModal(p)}
                             data-testid="btn-edit-product"
                           >
                             Edit
+                          </button>
+                          <button
+                            className="btn btn-outline btn-sm"
+                            onClick={() => openQuickViewPopup(p)}
+                            data-testid="btn-quick-view-popup"
+                            title="Open in popup window"
+                          >
+                            🪟 Quick View
+                          </button>
+                          <button
+                            className="btn btn-outline btn-sm"
+                            onClick={() => openInNewTab(p)}
+                            data-testid="btn-open-new-tab"
+                            title="Open in new tab"
+                          >
+                            🔗 View Product
                           </button>
                           <button
                             className="btn btn-danger btn-sm"
@@ -353,10 +533,13 @@ export function AdminProducts() {
             className="modal-overlay"
             onClick={(e) => e.target === e.currentTarget && closeModal()}
             data-testid="product-form-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="product-form-modal-title"
           >
             <div className="modal" style={{ maxWidth: 600 }}>
               <div className="modal-header">
-                <h3>{editProduct ? "Edit Product" : "Add New Product"}</h3>
+                <h3 id="product-form-modal-title">{editProduct ? "Edit Product" : "Add New Product"}</h3>
                 <button
                   className="btn btn-ghost btn-icon"
                   onClick={closeModal}
@@ -577,6 +760,26 @@ export function AdminProducts() {
                     </label>
                   </div>
                 </div>
+
+                {editProduct?.slug && (
+                  <div style={{ marginTop: 20 }}>
+                    <label className="form-label">🖼 Live Storefront Preview</label>
+                    <div
+                      style={{
+                        border: "1px solid var(--border)",
+                        borderRadius: "var(--radius)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <iframe
+                        src={`${window.location.origin}/products/${editProduct.slug}`}
+                        title="Live product preview"
+                        data-testid="product-preview-iframe"
+                        style={{ width: "100%", height: 280, border: "none" }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="modal-footer">
                 <button
@@ -600,6 +803,188 @@ export function AdminProducts() {
                     "Update Product"
                   ) : (
                     "Create Product"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk Import Modal: Excel/CSV read → dynamic table */}
+        {bulkModalOpen && (
+          <div
+            className="modal-overlay"
+            onClick={(e) => e.target === e.currentTarget && closeBulkModal()}
+            data-testid="bulk-import-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bulk-import-modal-title"
+          >
+            <div className="modal" style={{ maxWidth: 820 }}>
+              <div className="modal-header">
+                <h3 id="bulk-import-modal-title">Bulk Import Products (Excel/CSV)</h3>
+                <button
+                  className="btn btn-ghost btn-icon"
+                  onClick={closeBulkModal}
+                  data-testid="close-bulk-import-modal"
+                  aria-label="Close modal"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="modal-body">
+                <div
+                  className={`droppable ${bulkRows.length ? "has-file" : ""}`}
+                  onClick={() => bulkFileInputRef.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    handleBulkFileSelect(e.dataTransfer.files?.[0]);
+                  }}
+                  style={{ marginBottom: 16, cursor: "pointer" }}
+                  data-testid="bulk-import-dropzone"
+                  role="button"
+                  aria-label="Upload Excel or CSV file"
+                >
+                  <input
+                    ref={bulkFileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    style={{ display: "none" }}
+                    data-testid="bulk-import-file-input"
+                    onChange={(e) => handleBulkFileSelect(e.target.files?.[0])}
+                  />
+                  <p style={{ fontSize: "1.5rem", marginBottom: 6 }}>📊</p>
+                  {bulkFileName ? (
+                    <p style={{ fontWeight: 600 }}>
+                      ✅ {bulkFileName} — {bulkRows.length} row(s) parsed
+                    </p>
+                  ) : (
+                    <>
+                      <p style={{ fontWeight: 600 }}>
+                        Drag & drop an Excel/CSV file here
+                      </p>
+                      <p className="text-sm text-muted">
+                        or click to browse (.xlsx, .xls, .csv)
+                      </p>
+                    </>
+                  )}
+                </div>
+
+                <button
+                  className="btn btn-outline btn-sm"
+                  onClick={downloadBulkTemplate}
+                  data-testid="btn-download-template"
+                  style={{ marginBottom: 16 }}
+                >
+                  ⬇️ Download Sample Template
+                </button>
+
+                {bulkRows.length > 0 && (
+                  <div className="table-wrapper" style={{ maxHeight: 340, overflowY: "auto" }}>
+                    <table className="table" data-testid="bulk-import-table">
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                          <th>Price</th>
+                          <th>Stock</th>
+                          <th>Brand</th>
+                          <th>Category</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bulkRows.map((row, idx) => (
+                          <tr
+                            key={idx}
+                            data-testid="bulk-import-row"
+                            style={
+                              !isBulkRowValid(row)
+                                ? { background: "var(--danger-light, #fee2e2)" }
+                                : undefined
+                            }
+                          >
+                            <td>
+                              <input
+                                className="form-input"
+                                value={row.name}
+                                onChange={(e) => updateBulkRow(idx, "name", e.target.value)}
+                                data-testid={`bulk-row-name-${idx}`}
+                              />
+                            </td>
+                            <td>
+                              <input
+                                className="form-input"
+                                type="number"
+                                value={row.price}
+                                onChange={(e) => updateBulkRow(idx, "price", e.target.value)}
+                                data-testid={`bulk-row-price-${idx}`}
+                                style={{ width: 90 }}
+                              />
+                            </td>
+                            <td>
+                              <input
+                                className="form-input"
+                                type="number"
+                                value={row.stock}
+                                onChange={(e) => updateBulkRow(idx, "stock", e.target.value)}
+                                data-testid={`bulk-row-stock-${idx}`}
+                                style={{ width: 80 }}
+                              />
+                            </td>
+                            <td>
+                              <input
+                                className="form-input"
+                                value={row.brand}
+                                onChange={(e) => updateBulkRow(idx, "brand", e.target.value)}
+                                data-testid={`bulk-row-brand-${idx}`}
+                              />
+                            </td>
+                            <td>
+                              <input
+                                className="form-input"
+                                value={row.category}
+                                onChange={(e) => updateBulkRow(idx, "category", e.target.value)}
+                                data-testid={`bulk-row-category-${idx}`}
+                              />
+                            </td>
+                            <td>
+                              <button
+                                className="btn btn-ghost btn-icon"
+                                onClick={() => removeBulkRow(idx)}
+                                data-testid={`bulk-row-remove-${idx}`}
+                                aria-label="Remove row"
+                              >
+                                🗑
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button
+                  className="btn btn-outline"
+                  onClick={closeBulkModal}
+                  data-testid="btn-cancel-bulk-import"
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-accent"
+                  onClick={handleBulkImport}
+                  disabled={bulkImporting || !bulkRows.length}
+                  data-testid="btn-submit-bulk-import"
+                >
+                  {bulkImporting ? (
+                    <>
+                      <span className="spinner spinner-sm" /> Importing…
+                    </>
+                  ) : (
+                    `Import ${bulkRows.filter(isBulkRowValid).length} Product(s)`
                   )}
                 </button>
               </div>
@@ -802,10 +1187,13 @@ export function AdminOrders() {
               e.target === e.currentTarget && setSelectedOrder(null)
             }
             data-testid="update-status-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="update-status-modal-title"
           >
             <div className="modal" style={{ maxWidth: 440 }}>
               <div className="modal-header">
-                <h3>Update Order Status</h3>
+                <h3 id="update-status-modal-title">Update Order Status</h3>
                 <button
                   className="btn btn-ghost btn-icon"
                   onClick={() => setSelectedOrder(null)}
@@ -1107,6 +1495,23 @@ export function AdminCoupons() {
                         >
                           {c.code}
                         </span>
+                        <button
+                          className="btn btn-ghost btn-icon"
+                          style={{ fontSize: "0.8rem", marginLeft: 4 }}
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(c.code);
+                              toast.success(`Copied "${c.code}"`, { toastId: "copy-coupon" });
+                            } catch {
+                              toast.error("Could not copy to clipboard");
+                            }
+                          }}
+                          data-testid="copy-coupon-code-btn"
+                          aria-label={`Copy coupon code ${c.code}`}
+                          title="Copy coupon code"
+                        >
+                          📋
+                        </button>
                       </td>
                       <td className="text-sm">{c.type}</td>
                       <td style={{ fontWeight: 700 }}>
@@ -1163,10 +1568,13 @@ export function AdminCoupons() {
             className="modal-overlay"
             onClick={(e) => e.target === e.currentTarget && setModalOpen(false)}
             data-testid="create-coupon-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-coupon-modal-title"
           >
             <div className="modal">
               <div className="modal-header">
-                <h3>Create Coupon</h3>
+                <h3 id="create-coupon-modal-title">Create Coupon</h3>
                 <button
                   className="btn btn-ghost btn-icon"
                   onClick={() => setModalOpen(false)}

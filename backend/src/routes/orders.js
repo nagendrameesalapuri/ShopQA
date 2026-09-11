@@ -279,6 +279,8 @@
 const router = require('express').Router();
 const { query } = require('../config/database');
 const { authenticate, requireAdmin } = require('../middleware/auth');
+const { broadcastOrderStatusUpdate } = require('../config/websocket');
+const PDFDocument = require('pdfkit');
 
 const generateOrderNumber = () => {
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -404,6 +406,7 @@ router.put('/admin/:id/status', authenticate, requireAdmin, async (req, res, nex
     if (!rows.length) return res.status(404).json({ error: 'Order not found' });
     await query('INSERT INTO order_status_history (order_id, status, comment, updated_by) VALUES ($1,$2,$3,$4)',
       [req.params.id, status, comment || `Status updated to ${status}`, req.user.id]);
+    broadcastOrderStatusUpdate(rows[0].user_id, rows[0]);
     res.json({ order: rows[0] });
   } catch (err) { next(err); }
 });
@@ -473,6 +476,90 @@ router.get('/:id/invoice', authenticate, async (req, res, next) => {
     if (!rows.length) return res.status(404).json({ error: 'Order not found' });
     const { rows: items } = await query('SELECT * FROM order_items WHERE order_id = $1', [rows[0].id]);
     res.json({ invoice: { order: rows[0], items } });
+  } catch (err) { next(err); }
+});
+
+// ─── Invoice PDF: real binary download for Playwright download+content-
+// verification practice (page.waitForEvent('download') + parse the PDF). ──
+/**
+ * @swagger
+ * /api/orders/{id}/invoice/pdf:
+ *   get:
+ *     summary: Download the order invoice as a real PDF file
+ *     tags: [Orders]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: PDF file attachment
+ *         content:
+ *           application/pdf:
+ *             schema: { type: string, format: binary }
+ *       404: { description: Order not found }
+ */
+router.get('/:id/invoice/pdf', authenticate, async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      'SELECT o.*, u.email, u.first_name, u.last_name FROM orders o JOIN users u ON o.user_id = u.id WHERE o.id = $1 AND o.user_id = $2',
+      [req.params.id, req.user.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Order not found' });
+    const order = rows[0];
+    const { rows: items } = await query('SELECT * FROM order_items WHERE order_id = $1', [order.id]);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="invoice-${order.order_number}.pdf"`);
+
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    doc.pipe(res);
+
+    doc.fontSize(20).fillColor('#0f172a').text('ShopQA', { continued: true })
+      .fillColor('#f97316').text(' Invoice');
+    doc.moveDown(0.3);
+    doc.fontSize(10).fillColor('#475569')
+      .text(`Order Number: ${order.order_number}`)
+      .text(`Order Date: ${new Date(order.created_at).toLocaleDateString('en-IN')}`)
+      .text(`Status: ${order.status}`);
+    doc.moveDown();
+
+    doc.fontSize(11).fillColor('#0f172a').text('Billed To:');
+    doc.fontSize(10).fillColor('#475569')
+      .text(`${order.first_name} ${order.last_name}`)
+      .text(order.email);
+    doc.moveDown();
+
+    const tableTop = doc.y + 10;
+    doc.fontSize(10).fillColor('#ffffff');
+    doc.rect(50, tableTop, 495, 20).fill('#0f172a');
+    doc.fillColor('#ffffff')
+      .text('Item', 58, tableTop + 5, { width: 260 })
+      .text('Qty', 320, tableTop + 5, { width: 60 })
+      .text('Price', 380, tableTop + 5, { width: 80 })
+      .text('Total', 460, tableTop + 5, { width: 80 });
+
+    let y = tableTop + 22;
+    doc.fillColor('#1e293b');
+    items.forEach((item, i) => {
+      if (i % 2 === 1) doc.rect(50, y, 495, 20).fill('#fff7ed');
+      doc.fillColor('#1e293b')
+        .text(item.product_name || 'Product', 58, y + 4, { width: 260 })
+        .text(String(item.quantity), 320, y + 4, { width: 60 })
+        .text(`Rs. ${Number(item.unit_price).toLocaleString('en-IN')}`, 380, y + 4, { width: 80 })
+        .text(`Rs. ${Number(item.total_price).toLocaleString('en-IN')}`, 460, y + 4, { width: 80 });
+      y += 20;
+    });
+
+    doc.moveDown(2);
+    doc.fontSize(11).fillColor('#0f172a')
+      .text(`Subtotal: Rs. ${Number(order.subtotal || order.total).toLocaleString('en-IN')}`, { align: 'right' })
+      .text(`Shipping: Rs. ${Number(order.shipping_cost || 0).toLocaleString('en-IN')}`, { align: 'right' })
+      .text(`Discount: -Rs. ${Number(order.discount_amt || 0).toLocaleString('en-IN')}`, { align: 'right' })
+      .fontSize(14).fillColor('#f97316')
+      .text(`Total: Rs. ${Number(order.total).toLocaleString('en-IN')}`, { align: 'right' });
+
+    doc.end();
   } catch (err) { next(err); }
 });
 

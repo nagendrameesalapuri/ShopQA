@@ -222,6 +222,7 @@
 const router = require("express").Router();
 const { query, getPool } = require("../config/database");
 const bcrypt = require("bcryptjs");
+const chaos = require("../config/chaos");
 
 const qaGuard = (req, res, next) => {
   if (process.env.NODE_ENV === "production") {
@@ -253,6 +254,55 @@ router.get("/status", async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// ─── Chaos Engineering: inject artificial latency/errors into the real
+// storefront endpoints (product list/detail, add-to-cart) so Playwright can
+// drive the actual UI and assert on loading spinners, retries, and error
+// states under controllable, repeatable network conditions. ───────────────
+/**
+ * @swagger
+ * /api/qa/chaos:
+ *   get:
+ *     summary: Get current chaos-engineering state
+ *     tags: [QA Helpers]
+ *     responses:
+ *       200: { description: Current latency/error-rate configuration }
+ *   post:
+ *     summary: Configure chaos-engineering (latency/errors on real endpoints)
+ *     tags: [QA Helpers]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               latencyMs: { type: integer, example: 3000, description: Added delay on affected requests (0-10000ms) }
+ *               errorRate: { type: number, example: 0.5, description: Probability (0-1) a request fails with errorStatus }
+ *               errorStatus: { type: integer, example: 500 }
+ *     responses:
+ *       200: { description: Updated chaos configuration }
+ */
+router.get("/chaos", (req, res) => {
+  res.json({ chaos: chaos.getState() });
+});
+
+router.post("/chaos", (req, res) => {
+  const { latencyMs, errorRate, errorStatus } = req.body;
+  res.json({ chaos: chaos.configure({ latencyMs, errorRate, errorStatus }) });
+});
+
+/**
+ * @swagger
+ * /api/qa/chaos/reset:
+ *   post:
+ *     summary: Disable chaos-engineering (zero latency/error rate)
+ *     tags: [QA Helpers]
+ *     responses:
+ *       200: { description: Chaos configuration reset to defaults }
+ */
+router.post("/chaos/reset", (req, res) => {
+  res.json({ chaos: chaos.reset() });
 });
 
 router.post("/reset", async (req, res, next) => {
@@ -355,7 +405,7 @@ router.post("/orders/generate", async (req, res, next) => {
         `INSERT INTO orders (order_number, user_id, status, payment_status, payment_method, shipping_address, subtotal, shipping_cost, tax_amt, total)
          VALUES ($1, $2, $3, 'paid', $4, $5, $6, $7, $8, $9) RETURNING *`,
         [
-          `ORD-TEST-${Date.now()}-${i}`,
+          `ORD-${Date.now().toString(36).toUpperCase()}${i}`,
           userId,
           status,
           methods[Math.floor(Math.random() * methods.length)],
@@ -443,6 +493,11 @@ router.post("/users/:id/expire-tokens", async (req, res, next) => {
     next(err);
   }
 });
+
+// Coupon expirations must stay relative to seed-time, not hardcoded absolute
+// dates — a fixed date like "2025-12-31" silently starts failing every
+// "Invalid or expired coupon" test once real time passes it.
+const daysFromNow = (days) => new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
 const seedDatabase = async () => {
   const pool = getPool();
@@ -1013,7 +1068,7 @@ const seedDatabase = async () => {
       desc: "Welcome 10% off",
       limit: 100,
       perUser: 1,
-      expires: "2025-12-31",
+      expires: daysFromNow(90),
     },
     {
       code: "FLAT500",
@@ -1022,7 +1077,7 @@ const seedDatabase = async () => {
       desc: "Flat 500 off orders above 2000",
       limit: 50,
       minOrder: 2000,
-      expires: "2025-12-31",
+      expires: daysFromNow(90),
     },
     {
       code: "SUMMER25",
@@ -1031,7 +1086,7 @@ const seedDatabase = async () => {
       desc: "25% summer sale",
       limit: 200,
       maxDiscount: 1000,
-      expires: "2025-08-31",
+      expires: daysFromNow(60),
     },
     {
       code: "FREESHIP",
@@ -1049,7 +1104,7 @@ const seedDatabase = async () => {
       limit: 30,
       minOrder: 5000,
       maxDiscount: 2000,
-      expires: "2025-11-30",
+      expires: daysFromNow(75),
     },
     {
       code: "EXPIRED50",
@@ -1066,12 +1121,15 @@ const seedDatabase = async () => {
       desc: "Fully used coupon for testing",
       limit: 5,
       usageCount: 5,
-      expires: "2025-12-31",
+      // Not expired — this coupon should fail on usage-limit exhaustion
+      // (COUPON_EXHAUSTED), not on expiry, so the two failure modes stay
+      // distinguishable for testing.
+      expires: daysFromNow(90),
     },
   ];
   for (const c of coupons) {
     await pool.query(
-      `INSERT INTO coupons (code, type, value, description, usage_limit, per_user_limit, min_order_amt, max_discount, expires_at, usage_count) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (code) DO UPDATE SET value=EXCLUDED.value`,
+      `INSERT INTO coupons (code, type, value, description, usage_limit, per_user_limit, min_order_amt, max_discount, expires_at, usage_count) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (code) DO UPDATE SET value=EXCLUDED.value, expires_at=EXCLUDED.expires_at, usage_count=EXCLUDED.usage_count, usage_limit=EXCLUDED.usage_limit`,
       [
         c.code,
         c.type,

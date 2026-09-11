@@ -343,6 +343,13 @@ function PaymentStep({
                 style={{ width: "100%", height: 80, border: "none" }}
               />
             </div>
+
+            {/* Shadow DOM trust badge — a real encapsulated custom element,
+                not just a styled div (see src/webcomponents/trustBadge.js) */}
+            <div style={{ margin: "12px 0" }}>
+              <shopqa-trust-badge data-testid="trust-badge" />
+            </div>
+
             <div className="form-grid">
               <div className="form-group form-group-full">
                 <label className="form-label">Card Number (for testing)</label>

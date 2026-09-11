@@ -5,12 +5,16 @@ const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./config/swagger");
+const swaggerTheme = require("./config/swaggerTheme");
 const { connectDB } = require("./config/database");
 const path = require("path");
 const fs = require("fs");
+const http = require("http");
+const websocket = require("./config/websocket");
 require("dotenv").config();
 
 const app = express();
+const httpServer = http.createServer(app);
 
 // The API runs behind a reverse proxy in production (for example Nginx or a
 // hosting-provider load balancer). Trust only the closest proxy so `req.ip`
@@ -28,7 +32,10 @@ const allowedOrigins = [
 
 app.use(
   cors((req, callback) => {
-    const origin = req.get("Origin");
+    // The CRA dev-server proxy (changeOrigin: true) rewrites this header to
+    // the backend's own URL with a trailing slash (e.g. "http://localhost:5000/"),
+    // so strip trailing slashes before comparing.
+    const origin = req.get("Origin")?.replace(/\/+$/, "");
     // Swagger is served from this API, so its same-origin requests must be
     // allowed as well. `trust proxy` above preserves the public HTTPS scheme.
     const apiOrigin = `${req.protocol}://${req.get("host")}`;
@@ -96,8 +103,13 @@ app.use(
   "/api-docs",
   swaggerUi.serve,
   swaggerUi.setup(swaggerSpec, {
-    customCss: ".swagger-ui .topbar { display: none }",
+    customCss: swaggerTheme,
     customSiteTitle: "ShopQA API Documentation",
+    swaggerOptions: {
+      docExpansion: "list",
+      filter: true,
+      displayRequestDuration: true,
+    },
   }),
 );
 app.get("/api-docs.json", (req, res) => res.json(swaggerSpec));
@@ -131,10 +143,12 @@ app.use("*", (req, res) =>
 const PORT = process.env.PORT || 5000;
 const start = async () => {
   await connectDB();
-  app.listen(PORT, () => {
+  websocket.attach(httpServer);
+  httpServer.listen(PORT, () => {
     console.log(`🚀 ShopQA API running on port ${PORT}`);
     console.log(`📚 Swagger docs: http://localhost:${PORT}/api-docs`);
     console.log(`🏥 Health check: http://localhost:${PORT}/health`);
+    console.log(`🔌 WebSocket: ws://localhost:${PORT}/ws`);
   });
 };
 

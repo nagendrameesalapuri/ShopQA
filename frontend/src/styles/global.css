@@ -38,6 +38,35 @@
   --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ─── Dark theme (toggled via [data-theme] on <html>, persisted to
+   localStorage — see Layout.jsx) ─────────────────────────────────────── */
+:root[data-theme="dark"] {
+  --primary:       #e2e8f0;
+  --primary-light: #cbd5e1;
+  --accent:        #fb923c;
+  --accent-light:  #7c2d12;
+  --accent-dark:   #fdba74;
+  --success:       #22c55e;
+  --warning:       #f59e0b;
+  --danger:        #f87171;
+  --info:          #38bdf8;
+
+  --bg:            #0b1120;
+  --bg-card:       #131c2e;
+  --bg-muted:      #1a2438;
+  --border:        #263248;
+  --border-dark:   #334155;
+
+  --text-primary:  #f1f5f9;
+  --text-muted:    #94a3b8;
+  --text-light:    #64748b;
+
+  --shadow-sm:     0 1px 3px rgba(0,0,0,0.4);
+  --shadow:        0 4px 16px rgba(0,0,0,0.5);
+  --shadow-lg:     0 12px 40px rgba(0,0,0,0.6);
+}
+:root[data-theme="dark"] body { color-scheme: dark; }
+
 /* ─── Reset ───────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }

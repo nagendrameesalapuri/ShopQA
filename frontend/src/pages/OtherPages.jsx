@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import api from "../utils/api";
 import { toast } from "react-toastify";
 import { productImageUrl } from "../utils/productImage";
+import useLiveOrderStatus from "../utils/useLiveOrderStatus";
 
 const STATUS_BADGE = {
   pending: "badge-warning",
@@ -208,6 +209,8 @@ export function OrderDetail() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const { liveUpdate, connected } = useLiveOrderStatus(id);
 
   useEffect(() => {
     api
@@ -215,6 +218,44 @@ export function OrderDetail() {
       .then(({ data }) => setOrder(data.order))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Live status push from the admin panel (see useLiveOrderStatus) — merge
+  // it into the order and re-fetch the tracking timeline for the new entry.
+  useEffect(() => {
+    if (!liveUpdate) return;
+    setOrder((prev) => (prev ? { ...prev, status: liveUpdate.status, tracking_number: liveUpdate.trackingNumber ?? prev.tracking_number } : prev));
+    toast.info(`Order status updated live: ${liveUpdate.status.replace(/_/g, " ")}`, { toastId: "live-status" });
+    api.get(`/orders/${id}`).then(({ data }) => setOrder(data.order)).catch(() => {});
+  }, [liveUpdate, id]);
+
+  const copyOrderNumber = async () => {
+    try {
+      await navigator.clipboard.writeText(order.order_number);
+      toast.success("Order number copied!", { toastId: "copy-order" });
+    } catch {
+      toast.error("Could not copy to clipboard");
+    }
+  };
+
+  const downloadInvoicePdf = async () => {
+    setDownloadingPdf(true);
+    try {
+      const res = await api.get(`/orders/${id}/invoice/pdf`, { responseType: "blob" });
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `invoice-${order.order_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Failed to download invoice");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   const handleCancel = async () => {
     if (!window.confirm("Cancel this order?")) return;
@@ -273,11 +314,31 @@ export function OrderDetail() {
           }}
         >
           <div>
-            <h1
-              style={{ fontFamily: "var(--font-display)", fontSize: "1.75rem" }}
-            >
-              {order.order_number}
-            </h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <h1
+                style={{ fontFamily: "var(--font-display)", fontSize: "1.75rem" }}
+              >
+                {order.order_number}
+              </h1>
+              <button
+                className="btn btn-ghost btn-icon"
+                onClick={copyOrderNumber}
+                data-testid="copy-order-number-btn"
+                aria-label="Copy order number"
+                title="Copy order number"
+                style={{ fontSize: "1rem" }}
+              >
+                📋
+              </button>
+              <span
+                className={`badge ${connected ? "badge-success" : "badge-neutral"}`}
+                data-testid="live-status-indicator"
+                title={connected ? "Live order tracking connected" : "Live tracking offline"}
+                style={{ fontSize: "0.7rem" }}
+              >
+                {connected ? "🟢 Live" : "⚪ Offline"}
+              </span>
+            </div>
             <p className="text-muted text-sm">
               Placed on{" "}
               {new Date(order.created_at).toLocaleDateString("en-IN", {
@@ -307,24 +368,14 @@ export function OrderDetail() {
             <button
               className="btn btn-outline btn-sm"
               data-testid="download-invoice-btn"
-              onClick={async () => {
-                try {
-                  const { data } = await api.get(`/orders/${id}/invoice`);
-                  const blob = new Blob([JSON.stringify(data, null, 2)], {
-                    type: "application/json",
-                  });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `invoice-${order.order_number}.json`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                } catch {
-                  toast.error("Failed to download invoice");
-                }
-              }}
+              onClick={downloadInvoicePdf}
+              disabled={downloadingPdf}
             >
-              📄 Invoice
+              {downloadingPdf ? (
+                <span className="spinner spinner-sm" />
+              ) : (
+                "📄 Invoice PDF"
+              )}
             </button>
           </div>
         </div>
