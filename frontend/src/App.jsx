@@ -33,6 +33,7 @@ const AdminProducts  = lazy(() => import('./pages/admin/Products'));
 const AdminOrders    = lazy(() => import('./pages/admin/Orders'));
 const AdminUsers     = lazy(() => import('./pages/admin/Users'));
 const AdminCoupons   = lazy(() => import('./pages/admin/Coupons'));
+const TestCases      = lazy(() => import('./pages/TestCases'));
 const NotFound       = lazy(() => import('./pages/NotFound'));
 
 export default function App() {
@@ -47,6 +48,7 @@ export default function App() {
                 <Route path="/"                  element={<Home />} />
                 <Route path="/products"          element={<ProductList />} />
                 <Route path="/products/:id"      element={<ProductDetail />} />
+                <Route path="/testcases"         element={<TestCases />} />
                 <Route path="/login"             element={<Login />} />
                 <Route path="/register"          element={<Register />} />
                 <Route path="/forgot-password"   element={<ForgotPassword />} />
