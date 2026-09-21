@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import "../styles/testcases.css";
 
 const U = "john@test.com / Password123!";
 const A = "admin@shopqa.com / Password123!";
@@ -91,8 +92,8 @@ const CASES = RAW.map(([module, title, type, priority, steps, expected], i) => (
   module, title, type, priority, steps, expected,
 }));
 
-const TYPE_BADGE = { Sanity: "badge-info", Smoke: "badge-warning", Regression: "badge-neutral", E2E: "badge-success" };
-const uniq = (k) => [...new Set(CASES.map((c) => c[k]))];
+const TYPES = ["Sanity", "Smoke", "Regression", "E2E"];
+const MODULES = [...new Set(CASES.map((c) => c.module))];
 
 export default function TestCases() {
   const [q, setQ] = useState("");
@@ -108,53 +109,87 @@ export default function TestCases() {
     );
   }, [q, type, module]);
 
+  const filtered = q || type || module;
+  const reset = () => { setQ(""); setType(""); setModule(""); };
+
   return (
-    <div style={{ padding: "32px 0" }} data-testid="testcases-page">
+    <div className="tc-page" data-testid="testcases-page">
       <div className="container">
-        <h1 style={{ marginBottom: 4 }}>Test Cases</h1>
-        <p style={{ marginBottom: 16 }} data-testid="testcases-count">
-          Showing {rows.length} of {CASES.length} test cases
-        </p>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
-          <input className="form-control" style={{ maxWidth: 280 }} placeholder="Search test cases…"
-            value={q} onChange={(e) => setQ(e.target.value)} data-testid="testcases-search" />
-          <select className="form-control" style={{ maxWidth: 180 }} value={type}
-            onChange={(e) => setType(e.target.value)} data-testid="testcases-type-filter">
-            <option value="">All types</option>
-            {uniq("type").map((t) => <option key={t}>{t}</option>)}
-          </select>
-          <select className="form-control" style={{ maxWidth: 220 }} value={module}
-            onChange={(e) => setModule(e.target.value)} data-testid="testcases-module-filter">
-            <option value="">All modules</option>
-            {uniq("module").map((m) => <option key={m}>{m}</option>)}
-          </select>
+        <header className="tc-hero">
+          <span className="tc-eyebrow">QA Test Suite</span>
+          <h1>Test Cases</h1>
+          <p>
+            {CASES.length} curated sanity, smoke, regression and end-to-end scenarios covering
+            every ShopQA module, from authentication to admin.
+          </p>
+        </header>
+
+        <div className="tc-stats">
+          <button type="button" className={`tc-stat tc-t-All${!type ? " active" : ""}`}
+            onClick={() => setType("")} data-testid="testcases-stat-all">
+            <div className="tc-stat-num">{CASES.length}</div>
+            <div className="tc-stat-label">All test cases</div>
+          </button>
+          {TYPES.map((t) => (
+            <button type="button" key={t} className={`tc-stat tc-t-${t}${type === t ? " active" : ""}`}
+              onClick={() => setType(type === t ? "" : t)} data-testid={`testcases-stat-${t}`}>
+              <div className="tc-stat-num">{CASES.filter((c) => c.type === t).length}</div>
+              <div className="tc-stat-label">{t}</div>
+            </button>
+          ))}
         </div>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }} data-testid="testcases-table">
-            <thead>
-              <tr style={{ textAlign: "left", borderBottom: "2px solid #ddd" }}>
-                {["ID", "Module", "Title", "Type", "Priority", "Steps", "Expected Result"].map((h) => (
-                  <th key={h} style={{ padding: 8 }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((c) => (
-                <tr key={c.id} style={{ borderBottom: "1px solid #eee", verticalAlign: "top" }} data-testid={`testcase-${c.id}`}>
-                  <td style={{ padding: 8, whiteSpace: "nowrap" }}>{c.id}</td>
-                  <td style={{ padding: 8 }}>{c.module}</td>
-                  <td style={{ padding: 8, fontWeight: 600 }}>{c.title}</td>
-                  <td style={{ padding: 8 }}><span className={`badge ${TYPE_BADGE[c.type]}`}>{c.type}</span></td>
-                  <td style={{ padding: 8 }}>{c.priority}</td>
-                  <td style={{ padding: 8 }}>{c.steps}</td>
-                  <td style={{ padding: 8 }}>{c.expected}</td>
+
+        <div className="tc-toolbar">
+          <div className="tc-search">
+            <span aria-hidden="true">🔍</span>
+            <input className="tc-input" placeholder="Search by ID, title, steps…" value={q}
+              onChange={(e) => setQ(e.target.value)} data-testid="testcases-search" />
+          </div>
+          <select className="tc-select" value={type} onChange={(e) => setType(e.target.value)}
+            data-testid="testcases-type-filter">
+            <option value="">All types</option>
+            {TYPES.map((t) => <option key={t}>{t}</option>)}
+          </select>
+          <select className="tc-select" value={module} onChange={(e) => setModule(e.target.value)}
+            data-testid="testcases-module-filter">
+            <option value="">All modules</option>
+            {MODULES.map((m) => <option key={m}>{m}</option>)}
+          </select>
+          {filtered && <button type="button" className="tc-reset" onClick={reset}>Clear filters</button>}
+        </div>
+
+        <p className="tc-count" data-testid="testcases-count">
+          Showing <b>{rows.length}</b> of <b>{CASES.length}</b> test cases
+        </p>
+
+        <div className="tc-card">
+          <div className="tc-scroll">
+            <table className="tc-table" data-testid="testcases-table">
+              <thead>
+                <tr>
+                  {["ID", "Module", "Title", "Type", "Priority", "Steps", "Expected Result"].map((h) => (
+                    <th key={h}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-              {rows.length === 0 && (
-                <tr><td colSpan={7} style={{ padding: 16 }}>No test cases match your filters.</td></tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((c) => (
+                  <tr key={c.id} data-testid={`testcase-${c.id}`}>
+                    <td><span className="tc-id">{c.id}</span></td>
+                    <td><span className="tc-module">{c.module}</span></td>
+                    <td className="tc-title">{c.title}</td>
+                    <td><span className={`tc-pill tc-t-${c.type}`}>{c.type}</span></td>
+                    <td><span className={`tc-prio tc-p-${c.priority}`}>{c.priority}</span></td>
+                    <td>{c.steps}</td>
+                    <td>{c.expected}</td>
+                  </tr>
+                ))}
+                {rows.length === 0 && (
+                  <tr><td colSpan={7} className="tc-empty">No test cases match your filters.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
