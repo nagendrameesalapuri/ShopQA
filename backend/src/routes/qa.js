@@ -232,6 +232,68 @@ const { query, getPool } = require("../config/database");
 const bcrypt = require("bcryptjs");
 const chaos = require("../config/chaos");
 
+// ─── Verification token lookup (exempt from the production QA_DISABLED guard
+// below). Registration only returns `verificationToken` in the response body
+// when NODE_ENV !== 'production' (see routes/auth.js); on a production
+// deploy there is no real email sender wired up, so a freshly-registered
+// account would otherwise have no way to reach `pending_verification` →
+// `active`. This route exists purely so automated tests can fetch that token
+// and drive the real register → verify → login flow end to end, on any
+// environment. It only ever returns a token for an account that still needs
+// verifying — nothing is exposed once the account is already active. ──────
+/**
+ * @swagger
+ * /api/qa/users/{email}/verification-token:
+ *   get:
+ *     summary: Fetch a pending user's email-verification token
+ *     description: |
+ *       Unlike every other `/api/qa/*` endpoint, this one is **not** disabled when
+ *       `NODE_ENV=production`. Registration only echoes `verificationToken` in its own
+ *       response outside production, and this app has no real email sender wired up, so
+ *       on a production deploy this is the only way to complete the register → verify →
+ *       login flow end to end. Returns 404 once the account is no longer pending
+ *       verification (already verified, or never registered).
+ *     tags: [QA Helpers]
+ *     parameters:
+ *       - in: path
+ *         name: email
+ *         required: true
+ *         schema: { type: string, format: email }
+ *     responses:
+ *       200:
+ *         description: Token for the still-pending account
+ *         content:
+ *           application/json:
+ *             example:
+ *               email: "user@example.com"
+ *               verificationToken: "a1b2c3..."
+ *               verificationUrl: "https://shopqa-backend.onrender.com/api/auth/verify-email/a1b2c3..."
+ *       404:
+ *         description: No pending-verification account with that email
+ */
+router.get("/users/:email/verification-token", async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      "SELECT verification_token FROM users WHERE email=$1 AND status='pending_verification'",
+      [req.params.email],
+    );
+    if (!rows.length || !rows[0].verification_token) {
+      return res.status(404).json({
+        error: "No pending-verification account with that email",
+        code: "NOT_FOUND",
+      });
+    }
+    const verificationToken = rows[0].verification_token;
+    res.json({
+      email: req.params.email,
+      verificationToken,
+      verificationUrl: `${req.protocol}://${req.get("host")}/api/auth/verify-email/${verificationToken}`,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 const qaGuard = (req, res, next) => {
   if (process.env.NODE_ENV === "production") {
     return res

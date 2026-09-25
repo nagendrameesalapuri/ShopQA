@@ -15,6 +15,8 @@ const RAW = [
   ["Authentication", "Register with duplicate email", "Regression", "P1", "Register using john@test.com", "Error: email already exists"],
   ["Authentication", "Register with a delivery address", "Smoke", "P1", "On /register, check \"Add a delivery address now\", fill address fields, submit", "Account created; address saved as default; visible in Profile → Addresses and pre-filled at checkout"],
   ["Authentication", "Register with invalid address fields", "Regression", "P2", "Check the address toggle, leave City/State empty or enter a non-6-digit postal code, submit", "Inline validation errors on the address fields; form not submitted"],
+  ["Authentication", "Unverified email cannot log in", "Regression", "P1", "Register a new account, then immediately try to login with it", "401 EMAIL_NOT_VERIFIED error; login blocked"],
+  ["Authentication", "Verify email via QA helper", "Sanity", "P1", "Register, GET /api/qa/users/{email}/verification-token, then GET /api/auth/verify-email/{token}", "Token returned even with NODE_ENV=production; account status becomes active; login now succeeds"],
   ["Authentication", "Forgot and reset password", "Regression", "P2", "Go to /forgot-password, submit email, use token at /reset-password/:token", "Password changed; login works with new password"],
   ["Authentication", "Logout", "Sanity", "P0", "Login, open user menu, click Logout", "Session cleared; redirected to login/home; protected pages inaccessible"],
   ["Authentication", "Protected route redirects guests", "Regression", "P1", "Logged out, open /cart, /orders, /profile", "Redirected to /login for each route"],

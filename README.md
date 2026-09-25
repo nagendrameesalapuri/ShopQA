@@ -92,6 +92,7 @@ curl -X POST http://localhost:5000/api/qa/seed
 | Wrong password | Enter wrong password | Error + attempts remaining |
 | Account lockout | Fail login 5 times | Account locked for 30 mins |
 | Unverified email | Register but don't verify | EMAIL_NOT_VERIFIED error |
+| Verify email (any environment) | Register, then `GET /api/qa/users/{email}/verification-token`, then `GET /api/auth/verify-email/{token}` | Token returned (works even with `NODE_ENV=production`); status becomes `active`; login succeeds |
 | Token expiry | Use `/api/qa/users/:id/expire-tokens` | 401 on next request |
 | Social login | Click Google/GitHub button | Simulated social auth |
 | Forgot password | Request reset, use `/api/auth/reset-password` | Password changed |
@@ -238,7 +239,7 @@ PATCH  /admin/users/:id  # { status: 'banned' | 'active' }
 POST   /admin/coupons
 GET    /admin/analytics/revenue
 
-# QA Helpers (non-production only)
+# QA Helpers (non-production only, unless noted)
 GET    /qa/status
 POST   /qa/seed
 POST   /qa/reset
@@ -247,7 +248,15 @@ POST   /qa/orders/generate     # { userId, count }
 POST   /qa/payment/mock        # { outcome: 'success'|'fail', orderId }
 PATCH  /qa/users/:id/lock      # { lock: true|false }
 POST   /qa/users/:id/expire-tokens
+GET    /qa/users/:email/verification-token  # works even in production — see note below
 ```
+
+> **`GET /qa/users/:email/verification-token`** is the one QA helper that is *not* disabled in
+> production. Registration only echoes `verificationToken` in its own response when
+> `NODE_ENV !== 'production'`, and this app has no real email sender wired up — so on a
+> production deploy this is the only way to complete register → verify → login end to end.
+> It 404s once the account is no longer `pending_verification`, and never exposes anything for
+> an already-verified account.
 
 ---
 
