@@ -63,9 +63,7 @@ function StepIndicator({ current, steps }) {
 }
 
 // ── Step 1: Shipping Address ──────────────────────────────────────────────────
-function ShippingStep({ data, onChange, addresses, onSelectSaved }) {
-  const [useSaved, setUseSaved] = useState(false);
-
+function ShippingStep({ data, onChange, addresses, selectedAddressId, onSelectSaved }) {
   return (
     <div data-testid="step-shipping">
       <h2 className="step-title">Shipping Address</h2>
@@ -77,13 +75,15 @@ function ShippingStep({ data, onChange, addresses, onSelectSaved }) {
             {addresses.map((addr) => (
               <div
                 key={addr.id}
-                className={`address-card ${useSaved === addr.id ? "selected" : ""}`}
-                onClick={() => {
-                  setUseSaved(addr.id);
-                  onSelectSaved(addr);
-                }}
+                className={`address-card ${selectedAddressId === addr.id ? "selected" : ""}`}
+                onClick={() => onSelectSaved(addr)}
                 data-testid={`saved-address-${addr.id}`}
               >
+                {addr.is_default && (
+                  <span className="badge badge-success" style={{ float: "right" }}>
+                    Default
+                  </span>
+                )}
                 <p className="address-label-badge">{addr.label}</p>
                 <p>
                   <strong>{addr.full_name}</strong>
@@ -493,6 +493,7 @@ export default function Checkout() {
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [addresses, setAddresses] = useState([]);
+  const [selectedAddressId, setSelectedAddressId] = useState(null);
 
   const [shipping, setShipping] = useState({
     fullName: `${user?.firstName || ""} ${user?.lastName || ""}`.trim(),
@@ -514,10 +515,29 @@ export default function Checkout() {
   });
   const [upiData, setUpiData] = useState({ upiId: "" });
 
+  const applyAddress = (addr) => {
+    setSelectedAddressId(addr.id);
+    setShipping({
+      fullName: addr.full_name,
+      phone: addr.phone,
+      line1: addr.line1,
+      line2: addr.line2 || "",
+      city: addr.city,
+      state: addr.state,
+      postalCode: addr.postal_code,
+      country: addr.country,
+    });
+  };
+
   useEffect(() => {
     api
       .get("/users/addresses")
-      .then(({ data }) => setAddresses(data.addresses || []))
+      .then(({ data }) => {
+        const list = data.addresses || [];
+        setAddresses(list);
+        const defaultAddr = list.find((a) => a.is_default) || list[0];
+        if (defaultAddr) applyAddress(defaultAddr);
+      })
       .catch(() => {});
   }, []);
 
@@ -617,20 +637,13 @@ export default function Checkout() {
             {step === 0 && (
               <ShippingStep
                 data={shipping}
-                onChange={(k, v) => setShipping((p) => ({ ...p, [k]: v }))}
+                onChange={(k, v) => {
+                  setSelectedAddressId(null);
+                  setShipping((p) => ({ ...p, [k]: v }));
+                }}
                 addresses={addresses}
-                onSelectSaved={(addr) =>
-                  setShipping({
-                    fullName: addr.full_name,
-                    phone: addr.phone,
-                    line1: addr.line1,
-                    line2: addr.line2 || "",
-                    city: addr.city,
-                    state: addr.state,
-                    postalCode: addr.postal_code,
-                    country: addr.country,
-                  })
-                }
+                selectedAddressId={selectedAddressId}
+                onSelectSaved={applyAddress}
               />
             )}
             {step === 1 && (

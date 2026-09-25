@@ -95,6 +95,11 @@ curl -X POST http://localhost:5000/api/qa/seed
 | Token expiry | Use `/api/qa/users/:id/expire-tokens` | 401 on next request |
 | Social login | Click Google/GitHub button | Simulated social auth |
 | Forgot password | Request reset, use `/api/auth/reset-password` | Password changed |
+| Register with address | Check "Add a delivery address now" on `/register` and fill it in | Address saved as the account's default; appears in Profile → Addresses and pre-fills checkout |
+| Register without address | Leave the address checkbox unchecked | Account created with no saved address (optional, doesn't block registration) |
+| Change password | Profile → Security, enter correct current + valid new password | Success; old password stops working; other sessions signed out |
+| Change password, wrong current password | Enter an incorrect current password | 401 `INVALID_PASSWORD`; inline error; password unchanged |
+| Change password, weak new password | Enter a new password missing upper/lower/digit | Inline validation error; no request sent |
 
 ### 2. Product Catalog
 
@@ -107,6 +112,9 @@ curl -X POST http://localhost:5000/api/qa/seed
 | Infinite scroll | Toggle checkbox | Loads more on scroll |
 | Lazy loading | Skeleton cards | Visible during fetch |
 | Out of stock | Overlay badge + disabled button | `stock = 0` |
+| Description tab | Product detail page | Full multi-sentence description for all 50 seeded products |
+| Specifications tab | Product detail page | Per-product key/value spec sheet (display, material, warranty, etc.) plus brand/SKU/weight/stock |
+| Reviews tab | Product detail page | 4-8 seeded reviews per product (~300 total), `avg_rating`/`review_count` computed from real rows |
 
 ### 3. Shopping Cart
 
@@ -125,12 +133,24 @@ curl -X POST http://localhost:5000/api/qa/seed
 
 | Step | Form Fields | Validations |
 |------|-------------|-------------|
-| Step 1: Shipping | Name, Phone, Address, City, State, Pincode | Required fields, 6-digit pincode |
+| Step 1: Shipping | Name, Phone, Address, City, State, Pincode | Required fields, 6-digit pincode. Saved addresses (from Profile or registration) are listed as pickable cards, with the default pre-selected; editing any field switches to a one-off manual entry |
 | Step 2: Delivery | Radio (Standard/Express/Overnight/Pickup) | Date picker for scheduled |
 | Step 3: Payment | Card/UPI/PayPal/COD | Card number format, CVV |
 | Step 4: Review | Summary of all steps | Confirm before placing |
 
-### 5. Complex UI Elements
+### 5. Address Management (Profile → Addresses)
+
+| Scenario | Steps | Expected |
+|----------|-------|----------|
+| Add address | Profile → Addresses → "+ Add New Address", fill required fields, save | New card appears in the list |
+| First address becomes default | Add an address when none exist | "Set as default address" is pre-checked and saved as default |
+| Edit address | Click "Edit" on a card, change fields, save | Card reflects updated values |
+| Delete address | Click "Delete" on a card | Address removed from the list and from checkout |
+| Set default | Click "Set Default" on a non-default card | That card now shows the "Default" badge; the previous default is unset (only one default at a time) |
+| Add n addresses | Repeat "Add New Address" | No upper limit — add as many as needed |
+| Use at checkout | Go to `/checkout` with saved addresses | Default address auto-selected; any saved address can be picked, or fields can be edited/typed manually for a one-off address |
+
+### 6. Complex UI Elements
 
 | Element | Location | Test Method |
 |---------|----------|-------------|
@@ -148,6 +168,9 @@ curl -X POST http://localhost:5000/api/qa/seed
 ---
 Test coverage : https://nagendra-shopqa-testcase-coverage.netlify.app/
 
+In-app test case catalog: open `/testcases` on the running frontend for a searchable,
+filterable table of 60 sanity/smoke/regression/E2E cases covering every module below.
+
 ## 🔌 API Reference
 
 ### Base URL
@@ -159,7 +182,7 @@ http://localhost:5000/api
 
 ```http
 # Auth
-POST /auth/register
+POST /auth/register     # accepts an optional `address` object, saved as the default address
 POST /auth/login
 POST /auth/logout
 POST /auth/forgot-password
@@ -167,10 +190,11 @@ POST /auth/reset-password
 GET  /auth/verify-email/:token
 
 # Products
-GET  /products          # ?page, limit, search, category, sort, minPrice, maxPrice, rating, inStock
-GET  /products/:id      # or /products/:slug
+GET  /products           # ?page, limit, search, category, sort, minPrice, maxPrice, rating, inStock
+GET  /products/:id       # or /products/:slug — includes specifications{} and reviews[]
 GET  /products/featured
 GET  /products/categories
+GET  /products/images/:id  # uploaded admin image bytes, stored in Postgres (not local disk)
 
 # Cart
 GET    /cart
@@ -194,6 +218,18 @@ GET    /reviews?productId=
 POST   /reviews
 PUT    /reviews/:id
 DELETE /reviews/:id
+
+# Users — Profile & Security
+GET    /users/me
+PUT    /users/me                   # { firstName, lastName, phone }
+PUT    /users/password             # { currentPassword, newPassword } — revokes other sessions on success
+
+# Users — Addresses (any number per user, one marked default)
+GET    /users/addresses
+POST   /users/addresses            # { label, fullName, phone, line1, line2, city, state, postalCode, country, isDefault }
+PUT    /users/addresses/:id        # update any field, including isDefault
+PATCH  /users/addresses/:id/default  # mark this one as the default, unsetting the others
+DELETE /users/addresses/:id
 
 # Admin
 GET    /admin/dashboard
@@ -266,7 +302,7 @@ npm test -- tests/api/api.test.js
 # Reset all test data (orders, carts, reviews)
 curl -X POST http://localhost:5000/api/qa/reset
 
-# Seed 50+ products, 10 users, coupons
+# Seed 50 products (full descriptions, specs, weight, SKU), 10 users, coupons, ~300 dummy reviews
 curl -X POST http://localhost:5000/api/qa/seed
 
 # Set a product out of stock
@@ -308,6 +344,13 @@ These intentional bugs are included for QA practice:
 7. **Admin pagination** — No pagination on users list
 8. **Password reset** — Reset token not invalidated after first use (in some edge cases)
 
+### ✅ Recently fixed (not test bugs, just history)
+
+- **Admin-uploaded product images going broken after a while** — images were written to the
+  backend's local disk (`backend/uploads/products/`), which most PaaS hosts wipe on every
+  restart/redeploy. Fixed by storing uploads in Postgres (`product_images` table) and serving
+  them from `GET /api/products/images/:id` instead.
+
 ---
 
 ## 📊 Database Schema
@@ -316,9 +359,10 @@ These intentional bugs are included for QA practice:
 -- Key tables:
 users               -- Authentication, roles, status
 categories          -- Product taxonomy  
-products            -- Catalog with stock, ratings
+products            -- Catalog: stock, ratings, sku, weight, specifications (jsonb)
 product_variants    -- Size/color variants
-addresses           -- Shipping addresses
+product_images      -- Uploaded admin image bytes (bytea) — survives backend restarts
+addresses           -- Shipping addresses, any number per user, one is_default
 coupons             -- Discount codes with rules
 carts + cart_items  -- Shopping cart
 orders + order_items -- Placed orders

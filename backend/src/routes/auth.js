@@ -20,6 +20,11 @@ const { body } = require('express-validator');
  * /api/auth/register:
  *   post:
  *     summary: Register a new user
+ *     description: |
+ *       Creates a new account (status `pending_verification` until the email is verified).
+ *       An `address` object is optional — if provided (with at least line1, city, state and
+ *       postalCode), it is saved as the user's first, default shipping address so it's ready
+ *       to use at checkout without a separate call to `POST /api/users/addresses`.
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -31,9 +36,22 @@ const { body } = require('express-validator');
  *             properties:
  *               email:    { type: string, example: "user@example.com" }
  *               password: { type: string, minLength: 8, example: "Password123!" }
- *               firstName:{ type: string, example: "John" }
+ *               firstName: { type: string, example: "John" }
  *               lastName: { type: string, example: "Doe" }
  *               phone:    { type: string, example: "+91-9876543210" }
+ *               address:
+ *                 type: object
+ *                 description: Optional — saved as the default address when line1/city/state/postalCode are present.
+ *                 properties:
+ *                   label:      { type: string, example: "Home" }
+ *                   fullName:   { type: string, example: "John Doe" }
+ *                   phone:      { type: string, example: "+91-9876543210" }
+ *                   line1:      { type: string, example: "123 Main St" }
+ *                   line2:      { type: string }
+ *                   city:       { type: string, example: "Bengaluru" }
+ *                   state:      { type: string, example: "Karnataka" }
+ *                   postalCode: { type: string, example: "560001" }
+ *                   country:    { type: string, example: "India" }
  *     responses:
  *       201: { description: User registered successfully }
  *       400: { description: Validation error or email taken }
@@ -49,7 +67,7 @@ router.post('/register',
   validateBody,
   async (req, res, next) => {
     try {
-      const { email, password, firstName, lastName, phone } = req.body;
+      const { email, password, firstName, lastName, phone, address } = req.body;
 
       const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
       if (existing.rows.length) {
@@ -66,6 +84,27 @@ router.post('/register',
       `, [email, passwordHash, firstName, lastName, phone || null, verificationToken]);
 
       const user = rows[0];
+
+      // Address is optional at registration — save it as the user's first
+      // (default) address so it shows up ready to use at checkout.
+      if (address && address.line1 && address.city && address.state && address.postalCode) {
+        await query(
+          `INSERT INTO addresses (user_id, label, full_name, phone, line1, line2, city, state, postal_code, country, is_default)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true)`,
+          [
+            user.id,
+            address.label || 'Home',
+            address.fullName || `${firstName} ${lastName}`,
+            address.phone || phone || '',
+            address.line1,
+            address.line2 || null,
+            address.city,
+            address.state,
+            address.postalCode,
+            address.country || 'India',
+          ],
+        );
+      }
 
       // In production: send verification email
       // For QA testing, we expose the token in response (dev mode)

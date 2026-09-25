@@ -4,9 +4,18 @@ import api from '../../utils/api';
 import { toast } from 'react-toastify';
 
 // ═══════════════════ REGISTER ════════════════════
+const INDIAN_STATES = [
+  'Andhra Pradesh', 'Assam', 'Bihar', 'Delhi', 'Goa', 'Gujarat', 'Haryana',
+  'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh',
+  'Maharashtra', 'Odisha', 'Punjab', 'Rajasthan', 'Tamil Nadu', 'Telangana',
+  'Uttar Pradesh', 'West Bengal',
+];
+
 export function Register() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', confirmPassword: '', phone: '' });
+  const [addAddress, setAddAddress] = useState(false);
+  const [address, setAddress] = useState({ line1: '', line2: '', city: '', state: '', postalCode: '', country: 'India' });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [strength, setStrength] = useState(0);
@@ -35,6 +44,12 @@ export function Register() {
     else if (form.password.length < 8) errs.password = 'At least 8 characters';
     else if (!/(?=.*[A-Z])(?=.*[a-z])(?=.*\d)/.test(form.password)) errs.password = 'Must contain uppercase, lowercase, and number';
     if (form.password !== form.confirmPassword) errs.confirmPassword = 'Passwords do not match';
+    if (addAddress) {
+      if (!address.line1.trim()) errs.line1 = 'Required';
+      if (!address.city.trim()) errs.city = 'Required';
+      if (!address.state) errs.state = 'Required';
+      if (!/^\d{6}$/.test(address.postalCode)) errs.postalCode = '6-digit postal code';
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -44,7 +59,15 @@ export function Register() {
     if (!validate()) return;
     setLoading(true);
     try {
-      const { data } = await api.post('/auth/register', { email: form.email, password: form.password, firstName: form.firstName, lastName: form.lastName, phone: form.phone });
+      const payload = { email: form.email, password: form.password, firstName: form.firstName, lastName: form.lastName, phone: form.phone };
+      if (addAddress) {
+        payload.address = {
+          fullName: `${form.firstName} ${form.lastName}`.trim(),
+          phone: form.phone,
+          ...address,
+        };
+      }
+      const { data } = await api.post('/auth/register', payload);
       toast.success('Registration successful! Please verify your email.');
       if (data.verificationUrl) {
         toast.info(`Dev mode: ${data.verificationUrl}`, { autoClose: 10000 });
@@ -116,6 +139,55 @@ export function Register() {
             <input className="form-input" type="tel" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="+91 98765 43210" data-testid="input-reg-phone" />
           </div>
 
+          <label className="checkbox-label" style={{ marginBottom: addAddress ? 14 : 20 }} data-testid="toggle-reg-address">
+            <input type="checkbox" checked={addAddress} onChange={e => setAddAddress(e.target.checked)} />
+            <span>Add a delivery address now (optional — you can also add this later in your profile)</span>
+          </label>
+
+          {addAddress && (
+            <div style={{ marginBottom: 20 }} data-testid="reg-address-fields">
+              <div className="form-group" style={{ marginBottom: 14 }}>
+                <label className="form-label">Address Line 1 *</label>
+                <input className={`form-input ${errors.line1 ? 'error' : ''}`} value={address.line1} onChange={e => setAddress(p => ({ ...p, line1: e.target.value }))} placeholder="House/Flat No., Street" data-testid="input-reg-line1" />
+                {errors.line1 && <p className="form-error">{errors.line1}</p>}
+              </div>
+              <div className="form-group" style={{ marginBottom: 14 }}>
+                <label className="form-label">Address Line 2</label>
+                <input className="form-input" value={address.line2} onChange={e => setAddress(p => ({ ...p, line2: e.target.value }))} placeholder="Area, Landmark (optional)" data-testid="input-reg-line2" />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+                <div className="form-group">
+                  <label className="form-label">City *</label>
+                  <input className={`form-input ${errors.city ? 'error' : ''}`} value={address.city} onChange={e => setAddress(p => ({ ...p, city: e.target.value }))} placeholder="Bengaluru" data-testid="input-reg-city" />
+                  {errors.city && <p className="form-error">{errors.city}</p>}
+                </div>
+                <div className="form-group">
+                  <label className="form-label">State *</label>
+                  <select className={`form-input ${errors.state ? 'error' : ''}`} value={address.state} onChange={e => setAddress(p => ({ ...p, state: e.target.value }))} data-testid="input-reg-state">
+                    <option value="">Select State</option>
+                    {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  {errors.state && <p className="form-error">{errors.state}</p>}
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div className="form-group">
+                  <label className="form-label">Postal Code *</label>
+                  <input className={`form-input ${errors.postalCode ? 'error' : ''}`} value={address.postalCode} onChange={e => setAddress(p => ({ ...p, postalCode: e.target.value }))} placeholder="560001" maxLength={6} data-testid="input-reg-postal" />
+                  {errors.postalCode && <p className="form-error">{errors.postalCode}</p>}
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Country</label>
+                  <select className="form-input" value={address.country} onChange={e => setAddress(p => ({ ...p, country: e.target.value }))} data-testid="input-reg-country">
+                    <option value="India">India</option>
+                    <option value="USA">United States</option>
+                    <option value="UK">United Kingdom</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
           <button type="submit" className="btn btn-primary btn-full btn-lg" disabled={loading} data-testid="btn-register">
             {loading ? <><span className="spinner spinner-sm" /> Creating account…</> : 'Create Account'}
           </button>
@@ -133,6 +205,8 @@ export function Register() {
         .auth-title { font-size: 1.75rem; text-align: center; margin-bottom: 4px; }
         .auth-subtitle { text-align: center; color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; }
         .auth-link { color: var(--accent); font-weight: 600; }
+        .checkbox-label { display: flex; align-items: flex-start; gap: 8px; font-size: 0.85rem; color: var(--text-muted); cursor: pointer; line-height: 1.4; }
+        .checkbox-label input { margin-top: 3px; accent-color: var(--accent); cursor: pointer; }
       `}</style>
     </div>
   );

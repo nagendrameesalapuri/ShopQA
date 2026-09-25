@@ -161,6 +161,36 @@
 
 /**
  * @swagger
+ * /api/users/password:
+ *   put:
+ *     summary: Change the current user's password
+ *     description: |
+ *       Verifies `currentPassword` against the stored hash before setting `newPassword`
+ *       (same strength rule as registration: 8+ chars with upper, lower and a digit).
+ *       On success, all of the user's refresh tokens are revoked so other sessions must
+ *       log in again with the new password — pair with `POST /api/qa/users/:id/expire-tokens`
+ *       to test that a stale session is rejected on its next refresh.
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           example:
+ *             currentPassword: "Password123!"
+ *             newPassword: "NewPassword456!"
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       400:
+ *         description: Missing fields, weak new password, or new password same as current
+ *       401:
+ *         description: Current password is incorrect
+ */
+
+/**
+ * @swagger
  * /api/users/addresses:
  *   get:
  *     summary: Get saved addresses
@@ -191,6 +221,75 @@
  *     responses:
  *       201:
  *         description: Address created
+ */
+
+/**
+ * @swagger
+ * /api/users/addresses/{id}:
+ *   put:
+ *     summary: Update a saved address
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           example:
+ *             label: "Work"
+ *             fullName: "John Doe"
+ *             phone: "9876543210"
+ *             line1: "456 Office Park"
+ *             city: "Bengaluru"
+ *             state: "Karnataka"
+ *             postalCode: "560002"
+ *             country: "India"
+ *             isDefault: false
+ *     responses:
+ *       200:
+ *         description: Address updated
+ *       404:
+ *         description: Address not found (or not owned by this user)
+ *   delete:
+ *     summary: Delete a saved address
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Address deleted
+ */
+
+/**
+ * @swagger
+ * /api/users/addresses/{id}/default:
+ *   patch:
+ *     summary: Mark an address as the default (unsets any other default for this user)
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Address set as default
+ *       404:
+ *         description: Address not found (or not owned by this user)
  */
 
 /**
@@ -465,6 +564,7 @@
 const reviewRouter = require('express').Router();
 const { query } = require('../config/database');
 const { authenticate, requireAdmin } = require('../middleware/auth');
+const bcrypt = require('bcryptjs');
 
 reviewRouter.get('/', async (req, res, next) => {
   try {
@@ -552,6 +652,41 @@ userRouter.put('/me', authenticate, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+userRouter.put('/password', authenticate, async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current and new password are required', code: 'VALIDATION_ERROR' });
+    }
+    if (newPassword.length < 8 || !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
+      return res.status(400).json({
+        error: 'New password must be at least 8 characters and include an uppercase letter, a lowercase letter and a number',
+        code: 'WEAK_PASSWORD',
+      });
+    }
+
+    const { rows } = await query('SELECT password_hash FROM users WHERE id=$1', [req.user.id]);
+    if (!rows.length) return res.status(404).json({ error: 'User not found' });
+
+    const valid = await bcrypt.compare(currentPassword, rows[0].password_hash);
+    if (!valid) {
+      return res.status(401).json({ error: 'Current password is incorrect', code: 'INVALID_PASSWORD' });
+    }
+
+    const sameAsOld = await bcrypt.compare(newPassword, rows[0].password_hash);
+    if (sameAsOld) {
+      return res.status(400).json({ error: 'New password must be different from the current password', code: 'SAME_PASSWORD' });
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 12);
+    await query('UPDATE users SET password_hash=$1, updated_at=NOW() WHERE id=$2', [newHash, req.user.id]);
+    // Revoke other sessions — the old password can no longer be used to refresh them.
+    await query('UPDATE refresh_tokens SET revoked=true WHERE user_id=$1', [req.user.id]);
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (err) { next(err); }
+});
+
 userRouter.get('/addresses', authenticate, async (req, res, next) => {
   try {
     const { rows } = await query('SELECT * FROM addresses WHERE user_id=$1 ORDER BY is_default DESC, created_at DESC', [req.user.id]);
@@ -569,6 +704,44 @@ userRouter.post('/addresses', authenticate, async (req, res, next) => {
       [req.user.id, label||'Home', fullName, phone, line1, line2||null, city, state, postalCode, country||'India', isDefault||false]
     );
     res.status(201).json({ address: rows[0] });
+  } catch (err) { next(err); }
+});
+
+userRouter.put('/addresses/:id', authenticate, async (req, res, next) => {
+  try {
+    const { rows: existing } = await query('SELECT * FROM addresses WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
+    if (!existing.length) return res.status(404).json({ error: 'Address not found' });
+    const { label, fullName, phone, line1, line2, city, state, postalCode, country, isDefault } = req.body;
+    if (isDefault) await query('UPDATE addresses SET is_default=false WHERE user_id=$1', [req.user.id]);
+    const { rows } = await query(
+      `UPDATE addresses SET label=$1, full_name=$2, phone=$3, line1=$4, line2=$5, city=$6, state=$7, postal_code=$8, country=$9, is_default=$10
+       WHERE id=$11 AND user_id=$12 RETURNING *`,
+      [
+        label ?? existing[0].label,
+        fullName ?? existing[0].full_name,
+        phone ?? existing[0].phone,
+        line1 ?? existing[0].line1,
+        line2 ?? existing[0].line2,
+        city ?? existing[0].city,
+        state ?? existing[0].state,
+        postalCode ?? existing[0].postal_code,
+        country ?? existing[0].country,
+        isDefault ?? existing[0].is_default,
+        req.params.id,
+        req.user.id,
+      ],
+    );
+    res.json({ address: rows[0] });
+  } catch (err) { next(err); }
+});
+
+userRouter.patch('/addresses/:id/default', authenticate, async (req, res, next) => {
+  try {
+    const { rows: existing } = await query('SELECT id FROM addresses WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
+    if (!existing.length) return res.status(404).json({ error: 'Address not found' });
+    await query('UPDATE addresses SET is_default=false WHERE user_id=$1', [req.user.id]);
+    const { rows } = await query('UPDATE addresses SET is_default=true WHERE id=$1 RETURNING *', [req.params.id]);
+    res.json({ address: rows[0] });
   } catch (err) { next(err); }
 });
 

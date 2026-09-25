@@ -13,24 +13,16 @@ const {
   optionalAuth,
 } = require("../middleware/auth");
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
-const { v4: uuidv4 } = require("uuid");
 const { chaosMiddleware } = require("../config/chaos");
 
 // ─── Multer Setup ─────────────────────────────────────────────────────────────
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadPath = path.join(__dirname, "../../uploads/products");
-    fs.mkdirSync(uploadPath, { recursive: true });
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${uuidv4()}${path.extname(file.originalname)}`);
-  },
-});
+// Uploaded files are kept in memory (not written to the app server's local
+// disk) and then persisted into the product_images table below. Disk storage
+// on most PaaS hosts (e.g. Render) is ephemeral, so anything written after
+// the last deploy is wiped on the next restart — that's what made uploaded
+// product images "work, then go broken after some time".
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith("image/")) {
@@ -40,6 +32,19 @@ const upload = multer({
     }
   },
 });
+
+// Persist uploaded files into product_images and return their ids + public URLs.
+const saveImages = async (files, productId) => {
+  const saved = [];
+  for (const file of files || []) {
+    const { rows } = await query(
+      "INSERT INTO product_images (product_id, mime_type, data) VALUES ($1,$2,$3) RETURNING id",
+      [productId || null, file.mimetype, file.buffer],
+    );
+    saved.push({ id: rows[0].id, url: `/api/products/images/${rows[0].id}` });
+  }
+  return saved;
+};
 
 // ─── List Products ────────────────────────────────────────────────────────────
 /**
@@ -218,6 +223,49 @@ router.get("/search/suggestions", async (req, res, next) => {
   }
 });
 
+// ─── Product Image (served from the database, not local disk) ────────────────
+/**
+ * @swagger
+ * /api/products/images/{id}:
+ *   get:
+ *     summary: Fetch an uploaded product image's raw bytes
+ *     description: |
+ *       Uploaded admin images are stored in the `product_images` table (Postgres), not on
+ *       the app server's local disk, so they survive backend restarts/redeploys. `images[]`
+ *       and `thumbnail` on a Product point here. Responses are cached long-term since each
+ *       id is immutable.
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Image bytes
+ *         content:
+ *           image/*: {}
+ *       404:
+ *         description: Image not found
+ */
+router.get("/images/:id", async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      "SELECT mime_type, data FROM product_images WHERE id = $1",
+      [req.params.id],
+    );
+    if (!rows.length) return res.status(404).end();
+    res.set({
+      "Content-Type": rows[0].mime_type,
+      // Each id is a distinct, immutable image, so cache it aggressively.
+      "Cache-Control": "public, max-age=31536000, immutable",
+    });
+    res.send(rows[0].data);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ─── Single Product ───────────────────────────────────────────────────────────
 /**
  * @swagger
@@ -308,8 +356,8 @@ router.post(
 
       const slug =
         name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Date.now();
-      const images =
-        req.files?.map((f) => `/uploads/products/${f.filename}`) || [];
+      const uploaded = await saveImages(req.files);
+      const images = uploaded.map((u) => u.url);
       const thumbnail = images[0] || null;
 
       const { rows } = await query(
@@ -344,6 +392,14 @@ router.post(
         ],
       );
 
+      // Now that the product exists, link the uploaded images to it.
+      if (uploaded.length) {
+        await query(
+          "UPDATE product_images SET product_id=$1 WHERE id = ANY($2::uuid[])",
+          [rows[0].id, uploaded.map((u) => u.id)],
+        );
+      }
+
       res.status(201).json({ product: rows[0] });
     } catch (err) {
       next(err);
@@ -370,15 +426,15 @@ router.put(
         isFeatured,
         comparePrice,
       } = req.body;
-      const newImages =
-        req.files?.map((f) => `/uploads/products/${f.filename}`) || [];
-
       const { rows: existing } = await query(
         "SELECT * FROM products WHERE id = $1",
         [id],
       );
       if (!existing.length)
         return res.status(404).json({ error: "Product not found" });
+
+      const uploaded = await saveImages(req.files, id);
+      const newImages = uploaded.map((u) => u.url);
 
       const existingImages = existing[0].images || [];
       const allImages =

@@ -114,9 +114,12 @@ const initSchema = async () => {
       sold_count    INTEGER DEFAULT 0,
       meta_title    VARCHAR(255),
       meta_desc     TEXT,
+      specifications JSONB DEFAULT '{}'::jsonb,
       created_at    TIMESTAMPTZ DEFAULT NOW(),
       updated_at    TIMESTAMPTZ DEFAULT NOW()
     );
+    -- Backfill for databases created before the specifications column existed.
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS specifications JSONB DEFAULT '{}'::jsonb;
     CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
     CREATE INDEX IF NOT EXISTS idx_products_price    ON products(price);
     CREATE INDEX IF NOT EXISTS idx_products_rating   ON products(avg_rating);
@@ -132,6 +135,21 @@ const initSchema = async () => {
       stock      INTEGER DEFAULT 0,
       sku        VARCHAR(100)
     );
+
+    -- PRODUCT IMAGES
+    -- Stored as bytea in Postgres (not on the app server's local disk) so
+    -- uploaded images survive backend restarts/redeploys. Most PaaS hosts
+    -- (e.g. Render) run the app on an ephemeral filesystem: anything written
+    -- to disk after the last deploy is wiped on the next restart, which is
+    -- what makes disk-stored uploads go broken after "some time".
+    CREATE TABLE IF NOT EXISTS product_images (
+      id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+      mime_type  VARCHAR(100) NOT NULL,
+      data       BYTEA NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_product_images_product ON product_images(product_id);
 
     -- ADDRESSES
     CREATE TABLE IF NOT EXISTS addresses (

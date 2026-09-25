@@ -730,6 +730,158 @@ export function OrderConfirmation() {
 }
 
 // ═══════════════════ PROFILE ════════════════════
+const INDIAN_STATES = [
+  "Andhra Pradesh", "Assam", "Bihar", "Delhi", "Goa", "Gujarat", "Haryana",
+  "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh",
+  "Maharashtra", "Odisha", "Punjab", "Rajasthan", "Tamil Nadu", "Telangana",
+  "Uttar Pradesh", "West Bengal",
+];
+
+const EMPTY_ADDRESS = {
+  label: "Home",
+  fullName: "",
+  phone: "",
+  line1: "",
+  line2: "",
+  city: "",
+  state: "",
+  postalCode: "",
+  country: "India",
+  isDefault: false,
+};
+
+function AddressForm({ value, onChange, onSave, onCancel, saving }) {
+  return (
+    <div className="card" style={{ marginBottom: 16 }} data-testid="address-form">
+      <div className="card-body">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div className="form-group">
+            <label className="form-label">Label</label>
+            <input
+              className="form-input"
+              value={value.label}
+              onChange={(e) => onChange({ ...value, label: e.target.value })}
+              placeholder="Home, Work, etc."
+              data-testid="address-label"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Full Name *</label>
+            <input
+              className="form-input"
+              value={value.fullName}
+              onChange={(e) => onChange({ ...value, fullName: e.target.value })}
+              data-testid="address-full-name"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Phone *</label>
+            <input
+              className="form-input"
+              value={value.phone}
+              onChange={(e) => onChange({ ...value, phone: e.target.value })}
+              placeholder="+91 98765 43210"
+              data-testid="address-phone"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Country</label>
+            <select
+              className="form-input"
+              value={value.country}
+              onChange={(e) => onChange({ ...value, country: e.target.value })}
+              data-testid="address-country"
+            >
+              <option value="India">India</option>
+              <option value="USA">United States</option>
+              <option value="UK">United Kingdom</option>
+            </select>
+          </div>
+          <div className="form-group" style={{ gridColumn: "1/-1" }}>
+            <label className="form-label">Address Line 1 *</label>
+            <input
+              className="form-input"
+              value={value.line1}
+              onChange={(e) => onChange({ ...value, line1: e.target.value })}
+              placeholder="House/Flat No., Street"
+              data-testid="address-line1"
+            />
+          </div>
+          <div className="form-group" style={{ gridColumn: "1/-1" }}>
+            <label className="form-label">Address Line 2</label>
+            <input
+              className="form-input"
+              value={value.line2}
+              onChange={(e) => onChange({ ...value, line2: e.target.value })}
+              placeholder="Area, Landmark (optional)"
+              data-testid="address-line2"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">City *</label>
+            <input
+              className="form-input"
+              value={value.city}
+              onChange={(e) => onChange({ ...value, city: e.target.value })}
+              data-testid="address-city"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">State *</label>
+            <select
+              className="form-input"
+              value={value.state}
+              onChange={(e) => onChange({ ...value, state: e.target.value })}
+              data-testid="address-state"
+            >
+              <option value="">Select State</option>
+              {INDIAN_STATES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Postal Code *</label>
+            <input
+              className="form-input"
+              value={value.postalCode}
+              onChange={(e) => onChange({ ...value, postalCode: e.target.value })}
+              placeholder="560001"
+              maxLength={6}
+              data-testid="address-postal"
+            />
+          </div>
+          <label
+            className="checkbox-label"
+            style={{ display: "flex", alignItems: "center", gap: 8, gridColumn: "1/-1" }}
+          >
+            <input
+              type="checkbox"
+              checked={value.isDefault}
+              onChange={(e) => onChange({ ...value, isDefault: e.target.checked })}
+              data-testid="address-is-default"
+            />
+            <span>Set as default address</span>
+          </label>
+        </div>
+        <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+          <button
+            className="btn btn-accent"
+            onClick={onSave}
+            disabled={saving}
+            data-testid="save-address-btn"
+          >
+            {saving ? <span className="spinner spinner-sm" /> : "Save Address"}
+          </button>
+          <button className="btn btn-outline" onClick={onCancel} data-testid="cancel-address-btn">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Profile() {
   const { user, updateUser } = require("../context/AuthContext").useAuth();
   const [form, setForm] = useState({
@@ -739,6 +891,31 @@ export function Profile() {
   });
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState("profile");
+
+  const [addresses, setAddresses] = useState([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(true);
+  const [editingId, setEditingId] = useState(null); // null = closed, "new" = adding
+  const [addrForm, setAddrForm] = useState(EMPTY_ADDRESS);
+  const [savingAddress, setSavingAddress] = useState(false);
+
+  const [pwForm, setPwForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [pwErrors, setPwErrors] = useState({});
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwStrength, setPwStrength] = useState(0);
+  const [showPw, setShowPw] = useState({ current: false, next: false, confirm: false });
+
+  const fetchAddresses = () => {
+    setLoadingAddresses(true);
+    api
+      .get("/users/addresses")
+      .then(({ data }) => setAddresses(data.addresses || []))
+      .catch(() => {})
+      .finally(() => setLoadingAddresses(false));
+  };
+
+  useEffect(() => {
+    fetchAddresses();
+  }, []);
 
   const handleSave = async () => {
     setSaving(true);
@@ -754,6 +931,121 @@ export function Profile() {
       toast.error("Failed to update");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const checkPwStrength = (p) => {
+    let s = 0;
+    if (p.length >= 8) s++;
+    if (/[A-Z]/.test(p)) s++;
+    if (/[a-z]/.test(p)) s++;
+    if (/\d/.test(p)) s++;
+    if (/[^A-Za-z0-9]/.test(p)) s++;
+    setPwStrength(s);
+  };
+  const pwStrengthLabel = ["", "Very Weak", "Weak", "Fair", "Strong", "Very Strong"][pwStrength];
+  const pwStrengthColor = ["", "#ef4444", "#f97316", "#eab308", "#22c55e", "#16a34a"][pwStrength];
+
+  const validatePwForm = () => {
+    const errs = {};
+    if (!pwForm.currentPassword) errs.currentPassword = "Required";
+    if (!pwForm.newPassword) errs.newPassword = "Required";
+    else if (pwForm.newPassword.length < 8) errs.newPassword = "At least 8 characters";
+    else if (!/(?=.*[A-Z])(?=.*[a-z])(?=.*\d)/.test(pwForm.newPassword))
+      errs.newPassword = "Must contain uppercase, lowercase, and number";
+    if (pwForm.newPassword !== pwForm.confirmPassword) errs.confirmPassword = "Passwords do not match";
+    setPwErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleChangePassword = async () => {
+    if (!validatePwForm()) return;
+    setPwSaving(true);
+    try {
+      await api.put("/users/password", {
+        currentPassword: pwForm.currentPassword,
+        newPassword: pwForm.newPassword,
+      });
+      toast.success("Password changed. Other sessions have been logged out.");
+      setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setPwStrength(0);
+      setPwErrors({});
+    } catch (err) {
+      const code = err.response?.data?.code;
+      const msg = err.response?.data?.error || "Failed to change password";
+      if (code === "INVALID_PASSWORD") setPwErrors((p) => ({ ...p, currentPassword: msg }));
+      else if (code === "WEAK_PASSWORD" || code === "SAME_PASSWORD") setPwErrors((p) => ({ ...p, newPassword: msg }));
+      else toast.error(msg);
+    } finally {
+      setPwSaving(false);
+    }
+  };
+
+  const openNewAddress = () => {
+    setAddrForm({
+      ...EMPTY_ADDRESS,
+      fullName: `${user?.firstName || ""} ${user?.lastName || ""}`.trim(),
+      isDefault: addresses.length === 0,
+    });
+    setEditingId("new");
+  };
+
+  const openEditAddress = (addr) => {
+    setAddrForm({
+      label: addr.label || "Home",
+      fullName: addr.full_name || "",
+      phone: addr.phone || "",
+      line1: addr.line1 || "",
+      line2: addr.line2 || "",
+      city: addr.city || "",
+      state: addr.state || "",
+      postalCode: addr.postal_code || "",
+      country: addr.country || "India",
+      isDefault: !!addr.is_default,
+    });
+    setEditingId(addr.id);
+  };
+
+  const handleSaveAddress = async () => {
+    const { fullName, phone, line1, city, state, postalCode } = addrForm;
+    if (!fullName || !phone || !line1 || !city || !state || !/^\d{6}$/.test(postalCode)) {
+      toast.error("Please fill in all required fields with a valid 6-digit postal code");
+      return;
+    }
+    setSavingAddress(true);
+    try {
+      if (editingId === "new") {
+        await api.post("/users/addresses", addrForm);
+        toast.success("Address added");
+      } else {
+        await api.put(`/users/addresses/${editingId}`, addrForm);
+        toast.success("Address updated");
+      }
+      setEditingId(null);
+      fetchAddresses();
+    } catch {
+      toast.error("Failed to save address");
+    } finally {
+      setSavingAddress(false);
+    }
+  };
+
+  const handleDeleteAddress = async (id) => {
+    try {
+      await api.delete(`/users/addresses/${id}`);
+      toast.success("Address deleted");
+      fetchAddresses();
+    } catch {
+      toast.error("Failed to delete address");
+    }
+  };
+
+  const handleSetDefault = async (id) => {
+    try {
+      await api.patch(`/users/addresses/${id}/default`);
+      fetchAddresses();
+    } catch {
+      toast.error("Failed to update default address");
     }
   };
 
@@ -776,6 +1068,13 @@ export function Profile() {
             data-testid="tab-profile"
           >
             Profile
+          </button>
+          <button
+            className={`tab ${tab === "addresses" ? "active" : ""}`}
+            onClick={() => setTab("addresses")}
+            data-testid="tab-addresses"
+          >
+            Addresses
           </button>
           <button
             className={`tab ${tab === "security" ? "active" : ""}`}
@@ -844,12 +1143,227 @@ export function Profile() {
             </div>
           </div>
         )}
+        {tab === "addresses" && (
+          <div data-testid="addresses-tab">
+            {editingId && (
+              <AddressForm
+                value={addrForm}
+                onChange={setAddrForm}
+                onSave={handleSaveAddress}
+                onCancel={() => setEditingId(null)}
+                saving={savingAddress}
+              />
+            )}
+
+            {!editingId && (
+              <button
+                className="btn btn-accent"
+                onClick={openNewAddress}
+                style={{ marginBottom: 16 }}
+                data-testid="add-address-btn"
+              >
+                + Add New Address
+              </button>
+            )}
+
+            {loadingAddresses ? (
+              <p className="text-muted">Loading addresses…</p>
+            ) : addresses.length === 0 && !editingId ? (
+              <div className="card">
+                <div className="card-body">
+                  <p className="text-muted">
+                    You haven't saved any addresses yet. Add one so it's ready
+                    to pick at checkout.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+                  gap: 14,
+                }}
+                data-testid="address-list"
+              >
+                {addresses.map((addr) => (
+                  <div className="card" key={addr.id} data-testid={`address-card-${addr.id}`}>
+                    <div className="card-body">
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                          marginBottom: 8,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: "0.7rem",
+                            fontWeight: 700,
+                            textTransform: "uppercase",
+                            color: "var(--accent)",
+                          }}
+                        >
+                          {addr.label}
+                        </span>
+                        {addr.is_default && (
+                          <span className="badge badge-success" data-testid="default-badge">
+                            Default
+                          </span>
+                        )}
+                      </div>
+                      <p style={{ fontWeight: 600 }}>{addr.full_name}</p>
+                      <p className="text-muted text-sm">
+                        {addr.line1}
+                        {addr.line2 ? `, ${addr.line2}` : ""}, {addr.city},{" "}
+                        {addr.state} {addr.postal_code}
+                      </p>
+                      <p className="text-muted text-sm">{addr.phone}</p>
+                      <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+                        <button
+                          className="btn btn-outline btn-sm"
+                          onClick={() => openEditAddress(addr)}
+                          data-testid={`edit-address-${addr.id}`}
+                        >
+                          Edit
+                        </button>
+                        {!addr.is_default && (
+                          <button
+                            className="btn btn-outline btn-sm"
+                            onClick={() => handleSetDefault(addr.id)}
+                            data-testid={`set-default-${addr.id}`}
+                          >
+                            Set Default
+                          </button>
+                        )}
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => handleDeleteAddress(addr.id)}
+                          style={{ color: "var(--danger)" }}
+                          data-testid={`delete-address-${addr.id}`}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {tab === "security" && (
-          <div className="card">
+          <div className="card" style={{ maxWidth: 460 }} data-testid="security-tab">
             <div className="card-body">
-              <p className="text-muted">
-                Password change functionality — practice form validation here.
+              <h3 style={{ marginBottom: 4 }}>Change Password</h3>
+              <p className="text-muted text-sm" style={{ marginBottom: 20 }}>
+                Changing your password signs you out of all other sessions.
               </p>
+
+              <div className="form-group" style={{ marginBottom: 16 }}>
+                <label className="form-label">Current Password *</label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    className={`form-input ${pwErrors.currentPassword ? "error" : ""}`}
+                    type={showPw.current ? "text" : "password"}
+                    value={pwForm.currentPassword}
+                    onChange={(e) => {
+                      setPwForm((p) => ({ ...p, currentPassword: e.target.value }));
+                      setPwErrors((p) => ({ ...p, currentPassword: "" }));
+                    }}
+                    placeholder="Your current password"
+                    data-testid="current-password"
+                  />
+                  <button
+                    type="button"
+                    style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer" }}
+                    onClick={() => setShowPw((p) => ({ ...p, current: !p.current }))}
+                    data-testid="toggle-current-password"
+                  >
+                    {showPw.current ? "🙈" : "👁"}
+                  </button>
+                </div>
+                {pwErrors.currentPassword && (
+                  <p className="form-error" data-testid="current-password-error">{pwErrors.currentPassword}</p>
+                )}
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 6 }}>
+                <label className="form-label">New Password *</label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    className={`form-input ${pwErrors.newPassword ? "error" : ""}`}
+                    type={showPw.next ? "text" : "password"}
+                    value={pwForm.newPassword}
+                    onChange={(e) => {
+                      setPwForm((p) => ({ ...p, newPassword: e.target.value }));
+                      setPwErrors((p) => ({ ...p, newPassword: "" }));
+                      checkPwStrength(e.target.value);
+                    }}
+                    placeholder="Min 8 characters"
+                    data-testid="new-password"
+                  />
+                  <button
+                    type="button"
+                    style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer" }}
+                    onClick={() => setShowPw((p) => ({ ...p, next: !p.next }))}
+                    data-testid="toggle-new-password"
+                  >
+                    {showPw.next ? "🙈" : "👁"}
+                  </button>
+                </div>
+                {pwErrors.newPassword && (
+                  <p className="form-error" data-testid="new-password-error">{pwErrors.newPassword}</p>
+                )}
+              </div>
+
+              {pwForm.newPassword && (
+                <div style={{ marginBottom: 14 }} data-testid="password-strength">
+                  <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div
+                        key={i}
+                        style={{
+                          flex: 1,
+                          height: 4,
+                          borderRadius: 2,
+                          background: i <= pwStrength ? pwStrengthColor : "var(--border)",
+                          transition: "background 0.3s",
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <p style={{ fontSize: "0.75rem", color: pwStrengthColor, fontWeight: 600 }}>{pwStrengthLabel}</p>
+                </div>
+              )}
+
+              <div className="form-group" style={{ marginBottom: 20 }}>
+                <label className="form-label">Confirm New Password *</label>
+                <input
+                  className={`form-input ${pwErrors.confirmPassword ? "error" : ""}`}
+                  type={showPw.confirm ? "text" : "password"}
+                  value={pwForm.confirmPassword}
+                  onChange={(e) => {
+                    setPwForm((p) => ({ ...p, confirmPassword: e.target.value }));
+                    setPwErrors((p) => ({ ...p, confirmPassword: "" }));
+                  }}
+                  placeholder="Repeat new password"
+                  data-testid="confirm-new-password"
+                />
+                {pwErrors.confirmPassword && (
+                  <p className="form-error" data-testid="confirm-password-error">{pwErrors.confirmPassword}</p>
+                )}
+              </div>
+
+              <button
+                className="btn btn-accent"
+                onClick={handleChangePassword}
+                disabled={pwSaving}
+                data-testid="change-password-btn"
+              >
+                {pwSaving ? <span className="spinner spinner-sm" /> : "Change Password"}
+              </button>
             </div>
           </div>
         )}

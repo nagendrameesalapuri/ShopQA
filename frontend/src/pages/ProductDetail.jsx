@@ -473,6 +473,13 @@ export default function ProductDetail() {
                     <td style={{ fontWeight: 700 }}>Stock</td>
                     <td>{product.stock} units</td>
                   </tr>
+                  {product.specifications &&
+                    Object.entries(product.specifications).map(([key, value]) => (
+                      <tr key={key}>
+                        <td style={{ fontWeight: 700 }}>{key}</td>
+                        <td>{value}</td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
