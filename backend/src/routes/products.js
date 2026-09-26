@@ -56,7 +56,7 @@ const saveImages = async (files, productId) => {
  *     parameters:
  *       - { in: query, name: page,      schema: { type: integer, default: 1 } }
  *       - { in: query, name: limit,     schema: { type: integer, default: 12 } }
- *       - { in: query, name: search,    schema: { type: string } }
+ *       - { in: query, name: search,    schema: { type: string }, description: "Substring match on name/description/brand. Whitespace-insensitive on name/brand, so 'i phone' finds 'iPhone 15 Pro'." }
  *       - { in: query, name: category,  schema: { type: string } }
  *       - { in: query, name: minPrice,  schema: { type: number } }
  *       - { in: query, name: maxPrice,  schema: { type: number } }
@@ -91,11 +91,18 @@ router.get("/", chaosMiddleware, optionalAuth, async (req, res, next) => {
     let paramIdx = 1;
 
     if (search) {
+      // Besides the plain substring match, also compare with all whitespace
+      // stripped from both sides, so "i phone" finds "iPhone 15 Pro" and
+      // "mac book" finds "MacBook Air M3". Only name/brand get the stripped
+      // comparison — applying it to descriptions would add noise.
+      const compact = search.replace(/\s+/g, "").toLowerCase();
       conditions.push(
-        `(p.name ILIKE $${paramIdx} OR p.description ILIKE $${paramIdx} OR p.brand ILIKE $${paramIdx})`,
+        `(p.name ILIKE $${paramIdx} OR p.description ILIKE $${paramIdx} OR p.brand ILIKE $${paramIdx}
+          OR REPLACE(LOWER(p.name), ' ', '') LIKE $${paramIdx + 1}
+          OR REPLACE(LOWER(p.brand), ' ', '') LIKE $${paramIdx + 1})`,
       );
-      params.push(`%${search}%`);
-      paramIdx++;
+      params.push(`%${search}%`, `%${compact}%`);
+      paramIdx += 2;
     }
     if (category) {
       conditions.push(`c.slug = $${paramIdx}`);
@@ -214,8 +221,9 @@ router.get("/search/suggestions", async (req, res, next) => {
     if (!q || q.length < 2) return res.json({ suggestions: [] });
     const { rows } = await query(
       `SELECT name, slug, thumbnail, price FROM products
-       WHERE name ILIKE $1 AND is_active = true LIMIT 8`,
-      [`%${q}%`],
+       WHERE (name ILIKE $1 OR REPLACE(LOWER(name), ' ', '') LIKE $2)
+         AND is_active = true LIMIT 8`,
+      [`%${q}%`, `%${q.replace(/\s+/g, "").toLowerCase()}%`],
     );
     res.json({ suggestions: rows });
   } catch (err) {

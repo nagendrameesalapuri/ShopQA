@@ -110,6 +110,7 @@ curl -X POST http://localhost:5000/api/qa/seed
 | Price range | Number inputs + radio ranges | `minPrice` & `maxPrice` params |
 | Sort products | Dynamic dropdown | 6 sort options |
 | Search | Search bar in navbar | Full-text search |
+| Search with spacing differences | Search `i phone` or `mac book` | Matches `iPhone 15 Pro` / `MacBook Air M3` (whitespace-insensitive on name/brand) |
 | Infinite scroll | Toggle checkbox | Loads more on scroll |
 | Lazy loading | Skeleton cards | Visible during fetch |
 | Out of stock | Overlay badge + disabled button | `stock = 0` |

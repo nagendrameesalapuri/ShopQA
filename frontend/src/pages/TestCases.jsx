@@ -28,6 +28,7 @@ const RAW = [
   ["Product Catalog", "Filter by price range", "Regression", "P2", "Set min 500 and max 2000", "All shown products priced within range"],
   ["Product Catalog", "Sort products", "Regression", "P2", "Choose Price: Low to High, then High to Low", "Grid reorders correctly for each option"],
   ["Product Catalog", "Search products", "Smoke", "P1", "Type a keyword in navbar search and press Enter", "Results relevant to keyword; autocomplete suggestions appear while typing"],
+  ["Product Catalog", "Search ignores spacing differences", "Regression", "P2", "Search 'i phone' and 'mac book' in the navbar", "iPhone 15 Pro and MacBook Air M3 are returned respectively, with no unrelated products"],
   ["Product Catalog", "Search with no results", "Regression", "P2", "Search 'zzzxxyy'", "Empty-state message displayed"],
   ["Product Catalog", "Out-of-stock product", "Regression", "P1", "Set stock 0 via /api/qa/products/out-of-stock, open list", "Out-of-stock badge shown; Add to Cart disabled"],
 
